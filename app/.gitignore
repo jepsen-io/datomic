@@ -9,9 +9,5 @@ pom.xml.asc
 /.lein-*
 /.nrepl-port
 /.prepl-port
-/notes.md
-/aws.edn
-/store
-*.swp
 .hgignore
 .hg/

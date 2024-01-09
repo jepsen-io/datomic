@@ -10,6 +10,7 @@
                     [tests :as tests]
                     [util :as util]]
             [jepsen.checker.timeline :as timeline]
+            [jepsen.datomic [db :as db]]
             [jepsen.nemesis.combined :as nc]
             [jepsen.os.debian :as debian]))
 
@@ -44,7 +45,7 @@
   [opts]
   (let [workload-name (:workload opts)
         workload      ((workloads workload-name) opts)
-        db            (db/db opts)
+        db            (db/dynamo-db opts)
         os            debian/os
         nemesis       (nc/nemesis-package
                         {:db db
@@ -73,7 +74,7 @@
                             (gen/nemesis (:generator nemesis))
                             (gen/time-limit (:time-limit opts)))})))
 
-(defn cli-opts
+(def cli-opts
   "Command-line option specification"
   [[nil "--key-count NUM" "Number of keys in active rotation."
     :default  10
@@ -106,11 +107,11 @@
     :validate [pos? "Must be a positive number."]]
 
    ["-v" "--version STRING" "What version of Datomic should we install?"
-    :default "60005"]
+    :default "1.0.7075"]
 
    ["-w" "--workload NAME" "What workload should we run?"
     :parse-fn keyword
-    :default  :append
+    :default  :none
     :missing  (str "Must specify a workload: " (cli/one-of workloads))
     :validate [workloads (cli/one-of workloads)]]
    ])
