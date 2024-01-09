@@ -2,6 +2,13 @@
 
 Tests for the Datomic distributed database.
 
+<b>WARNING: THIS WILL DELETE AND CREATE IAM ROLES AND DATABASES.</b>
+Specifically, it deletes and re-creates the DynamoDB table `datomic-jepsen`,
+and deletes *all* IAM roles starting with `datomic-aws`; it creates
+automatically-numbered IAM roles beginning with this prefix. It is probably a
+bad idea to give this test access to an AWS account that stores Datomic data
+you care about.</b>
+
 ## Quickstart
 
 ```
@@ -19,7 +26,7 @@ and click "Create User". Choose a name (e.g. "datomic-jepsen") and click
 "Next". Choose "Attach policies directly", and create a policy adapted from [Datomic's
 list](https://docs.datomic.com/pro/overview/storage.html#iam-role-configuration). The docs are missing several IAM permissions you'll need, so there are more here.
 
-<b>THIS IS PROBABLY TOO BROAD A POLICY. Every time I try to use IAM I enter a dissociative fugue state. If you are an IAM expert and can make this more secure, please send a PR.</b>
+<b>WARNING: THIS IS PROBABLY TOO BROAD A POLICY.</b> Every time I try to use IAM I enter a dissociative fugue state. If you are an IAM expert and can make this more secure, please send a PR.
 
 ```json
 {
@@ -28,15 +35,20 @@ list](https://docs.datomic.com/pro/overview/storage.html#iam-role-configuration)
         {
             "Effect": "Allow",
             "Action": [
-                "iam:CreateInstanceProfile",
-                "iam:GetRole",
-                "iam:PassRole",
-                "iam:ListRoles",
-                "iam:CreateRole",
-                "iam:PutRolePolicy",
-                "iam:GetUser",
-                "iam:ListRolePolicies",
-                "iam:AddRoleToInstanceProfile"
+              "iam:CreateInstanceProfile",
+              "iam:DeleteInstanceProfile",
+              "iam:GetRole",
+              "iam:DeleteRole",
+              "iam:DeleteRolePolicy",
+              "iam:PassRole",
+              "iam:ListRoles",
+              "iam:CreateRole",
+              "iam:PutRolePolicy",
+              "iam:GetUser",
+              "iam:ListRolePolicies",
+              "iam:AddRoleToInstanceProfile",
+              "iam:ListInstanceProfilesForRole",
+              "iam:RemoveRoleFromInstanceProfile"
             ],
             "Resource": "*"
         },

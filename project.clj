@@ -3,7 +3,12 @@
   :url "https://github.com/jepsen-io/datomic"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
-  :dependencies [[org.clojure/clojure "1.11.1"]
+  :dependencies [[com.cognitect.aws/api "0.8.686"]
+                 [com.cognitect.aws/endpoints "1.1.12.504"]
+                 [com.cognitect.aws/iam "848.2.1413.0"]
+                 [com.cognitect.aws/kms "848.2.1413.0"]
+                 [com.cognitect.aws/dynamodb "848.2.1413.0"]
+                 [org.clojure/clojure "1.11.1"]
                  [jepsen "0.3.5-SNAPSHOT"]]
   :main jepsen.datomic.cli
   :jvm-opts ["-Djava.awt.headless=true"
