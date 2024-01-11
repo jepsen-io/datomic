@@ -9,7 +9,9 @@
                  [com.cognitect.aws/kms "848.2.1413.0"]
                  [com.cognitect.aws/dynamodb "848.2.1413.0"]
                  [org.clojure/clojure "1.11.1"]
-                 [jepsen "0.3.5-SNAPSHOT"]]
+                 [http-kit "2.7.0"]
+                 [jepsen "0.3.5-SNAPSHOT"]
+                 [slingshot "0.12.2"]]
   :main jepsen.datomic.cli
   :jvm-opts ["-Djava.awt.headless=true"
              "-server"]

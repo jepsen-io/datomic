@@ -16,6 +16,12 @@
   "Returns AWS credentials from disk."
   (memoize #(edn/read-string (slurp aws-file))))
 
+(defn env
+  "Returns an env var map for invoking Datomic JVM apps"
+  []
+  {"AWS_ACCESS_KEY_ID" (:access-key-id (aws))
+   "AWS_SECRET_KEY"    (:secret-key (aws))})
+
 (defn aws-client
   "Constructs a new AWS client for the given API."
   [api]

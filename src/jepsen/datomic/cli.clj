@@ -11,17 +11,19 @@
                     [util :as util]]
             [jepsen.checker.timeline :as timeline]
             [jepsen.datomic [db :as db]]
+            [jepsen.datomic.workload [append :as append]]
             [jepsen.nemesis.combined :as nc]
             [jepsen.os.debian :as debian]))
 
 (def workloads
   "A map of workload names to functions that take CLI options and return
   workload maps"
-  {:none (constantly tests/noop-test)})
+  {:append append/workload
+   :none   (constantly tests/noop-test)})
 
 (def all-workloads
   "A collection of workloads we run by default"
-  [])
+  [:append])
 
 (def all-nemeses
   "Combinations of nemeses we run by default."
@@ -76,7 +78,9 @@
 
 (def cli-opts
   "Command-line option specification"
-  [[nil "--key-count NUM" "Number of keys in active rotation."
+  [[nil "--clean-peer" "If set, recompiles the peer code instead of using a cached copy."]
+
+   [nil "--key-count NUM" "Number of keys in active rotation."
     :default  10
     :parse-fn parse-long
     :validate [pos? "Must be a positive integer"]]
@@ -111,7 +115,7 @@
 
    ["-w" "--workload NAME" "What workload should we run?"
     :parse-fn keyword
-    :default  :none
+    :default  :append
     :missing  (str "Must specify a workload: " (cli/one-of workloads))
     :validate [workloads (cli/one-of workloads)]]
    ])
