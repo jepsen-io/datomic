@@ -99,19 +99,31 @@
        (apply-txn db)
        first))
 
+(defn read-only?
+  "Is a transaction read-only?"
+  [txn]
+  (every? (comp #{:r} first) txn))
+
 (defn handle-txn
   "Handles a txn request"
   [conn txn]
   ;(info :handle-txn txn)
-  ; First, submit the transaction for writing
-  (let [{:keys [db-before db-after]}
-        @(d/transact conn [['jepsen.datomic.peer.append/apply-txn-datomic txn]])
+  (let [
+        {:keys [db-before db-after]}
+        (if (read-only? txn)
+          ; No need to transact; just fetch local DB state
+          (let [db (d/db conn)]
+            {:db-before db
+             :db-after db})
+          ; Do our write txn
+          @(d/transact conn [['jepsen.datomic.peer.append/apply-txn-datomic txn]]))
         ; Re-run the query to get the completed txn.
         [_ txn'] (apply-txn db-before txn)]
     {:t   (d/basis-t db-before)
      :t'  (d/basis-t db-after)
      :txn txn'
-     :state (->> (map second txn)
-                 distinct
-                 (map (juxt identity (partial read-k db-before)))
-                 (into (sorted-map)))}))
+     ;:state (->> (map second txn)
+     ;            distinct
+     ;            (map (juxt identity (partial read-k db-before)))
+     ;            (into (sorted-map)))
+     }))

@@ -17,6 +17,17 @@ lein run test TODO
 
 ## Setup
 
+There's some kind of issue around SequencedCollection I haven't figured out
+that breaks JDK17 and below. Not sure what's pulling it in--the stacktrace
+doesn't make sense. To upgrade Debian bookworm to trixie (testing), which has a
+newer JDK, you can run:
+
+```bash
+sudo sed -i 's/bookworm/trixie/g' /etc/apt/sources.list.d/debian.sources
+sudo apt update
+sudo apt install openjdk-22-jdk-headless
+```
+
 This test runs Datomic on top of DynamoDB. You'll need an AWS account, and an
 AWS IAM user for Datomic.
 
