@@ -5,6 +5,7 @@
               [clojure.tools.logging :refer [info warn]]
               [cognitect.aws.client.api :as aws]
               [cognitect.aws.credentials :as aws.creds]
+              [jepsen.util :refer [await-fn]]
               [jepsen.datomic [core :as dc]]
               [slingshot.slingshot :refer [try+ throw+]]))
 
@@ -38,6 +39,26 @@
     (if (contains? r :cognitect.anomalies/category)
       (throw+ (assoc r :type :aws-error))
       r)))
+
+(defn provision-io!
+  "Adjusts the provisioned throughput settings of the Datomic Dynamo table to
+  match the test."
+  [test]
+  (await-fn
+    (fn []
+      (let [d (aws-client :dynamodb)
+            r (aws-invoke
+                      d
+                      {:op :UpdateTable
+                       :request
+                       {:TableName dc/dynamo-table
+                        :ProvisionedThroughput
+                        {:ReadCapacityUnits (:dynamo-read-capacity test)
+                         :WriteCapacityUnits (:dynamo-write-capacity test)}}})]
+        r))
+    {:retry-interval 5000
+     :log-message "Waiting for Dynamo table to be created so we can provision it"
+     :log-interval 10000}))
 
 (defn delete-dynamo-table!
   "Deletes the dynamo table we use."

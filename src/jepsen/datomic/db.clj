@@ -88,10 +88,11 @@
 
 (defn setup-dynamo!
   "Sets up DynamoDB, creating initial tables and IAM roles/policies"
-  []
+  [test]
   ; See https://docs.datomic.com/pro/overview/storage.html#automated-setup
   (c/cd datomic-dir
-        (datomic! :ensure-transactor transactor-properties-file transactor-properties-file)))
+        (datomic! :ensure-transactor transactor-properties-file transactor-properties-file))
+  (aws/provision-io! test))
 
 (defn start-transactor!
   "Launches the transactor daemon."
@@ -126,7 +127,7 @@
       (when (transactor? test node)
         (configure!)
         (when (= node (jepsen/primary test) )
-          (setup-dynamo!))
+          (setup-dynamo! test))
         @peer ; Make sure classpath is ready
         (start-transactor!))
       @peer))

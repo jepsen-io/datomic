@@ -80,6 +80,14 @@
   "Command-line option specification"
   [[nil "--clean-peer" "If set, recompiles the peer code instead of using a cached copy."]
 
+   [nil "--dynamo-read-capacity UNITS" "How many units of read capacity to give DynamoDB."
+    :default 250
+    :parse-fn parse-long]
+
+   [nil "--dynamo-write-capacity UNITS" "How many units of read capacity to give DynamoDB."
+    :default 250
+    :parse-fn parse-long]
+
    [nil "--key-count NUM" "Number of keys in active rotation."
     :default  10
     :parse-fn parse-long
