@@ -11,7 +11,8 @@
                     [util :refer [with-thread-name]]]
             [jepsen.control [net :as cn]
                             [util :as cu]]
-            [jepsen.datomic [aws :as aws]]
+            [jepsen.datomic [aws :as aws]
+                            [client :as client]]
             [jepsen.datomic.db [peer :as db.peer]]
             [jepsen.os.debian :as debian]
             [slingshot.slingshot :refer [try+ throw+]]))
@@ -67,7 +68,9 @@
          {; Work around a bug where AWS SDK v1 is incompatible with Java 17
           ; See https://repost.aws/articles/ARPPEPfTPLTlGLHIsVVyyyYQ/troubleshooting-unable-to-unmarshall-exception-response-with-the-unmarshallers-provided-in-java
           "DATOMIC_JAVA_OPTS" (str "--add-opens java.base/java.lang=ALL-UNNAMED "
-                                   "--add-opens java.xml/com.sun.org.apache.xpath.internal=ALL-UNNAMED")}))
+                                   "--add-opens java.xml/com.sun.org.apache.xpath.internal=ALL-UNNAMED")
+          ; Add our custom txn fns to the classpath
+          "DATOMIC_EXT_CLASSPATH" db.peer/jar}))
 
 (defn datomic!
   "Runs a bin/datomic command with arguments, providing various env vars."
@@ -112,13 +115,19 @@
   (setup! [this test node]
     (let [peer (future
                  (with-thread-name (str "jepsen node " node " peer")
-                   (when (peer? test node)
-                     (db/setup! peer test node))))]
+                   (cond (peer? test node)
+                         (db/setup! peer test node)
+
+                         ; We still want a copy of the peer lib on the
+                         ; classpath so we can call its fns in transactions.
+                         (transactor? test node)
+                         (db.peer/install! test))))]
       (install-datomic! test)
       (when (transactor? test node)
         (configure!)
         (when (= node (jepsen/primary test) )
           (setup-dynamo!))
+        @peer ; Make sure classpath is ready
         (start-transactor!))
       @peer))
 

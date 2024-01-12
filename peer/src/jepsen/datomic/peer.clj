@@ -5,6 +5,7 @@
                      [pprint :refer [pprint]]]
             [clojure.tools.logging :refer [info warn]]
             [datomic.api :as d]
+            [jepsen.datomic.peer [append :as append]]
             [org.httpkit.server :as http-server]
             [slingshot.slingshot :refer [try+ throw+]]
             [unilog.config :refer [start-logging!]])
@@ -31,41 +32,6 @@
         (do (Thread/sleep backoff)
             (recur (min 5000 (* 2 backoff))))))))
 
-(def schema
-  [{:db/ident       :append/key
-    :db/valueType   :db.type/long
-    :db/cardinality :db.cardinality/one
-    :db/unique      :db.unique/identity
-    :db/doc         "The unique identifier for an append workload list."}
-   {:db/ident       :append/elements
-    :db/valueType   :db.type/long
-    :db/cardinality :db.cardinality/many
-    :db/doc         "A single element in an append workload"}])
-
-(defn handle-txn
-  "Handles a txn request"
-  [conn txn]
-  ; A basic, wrong transactional interpreter
-  (mapv (fn [[f k v :as mop]]
-          (case f
-            :r
-            (let [db (d/db conn)
-                  elements (d/q '{:find  [?element]
-                                  :in    [$ ?k]
-                                  :where [[?list :append/key ?k]
-                                          [?list :append/elements ?element]]}
-                                db
-                                k)]
-              [f k (mapv first elements)])
-
-            :append
-            (let [r @(d/transact conn
-                                 [{:append/key      k
-                                   :append/elements v}])]
-              (info :res r)
-              mop)))
-        txn))
-
 (defn make-http-app
   "Takes a Datomic connection and returns a Ring app: a function which takes
   HTTP requests."
@@ -78,7 +44,7 @@
                    (edn/read pbr))
             res (case (:uri req)
                   "/health" :ok
-                  "/txn" (handle-txn conn body))]
+                  "/txn" (append/handle-txn conn body))]
         {:status  200
          :headers {"Content-Type" "application/edn"}
          :body    (pr-str res)})
@@ -118,5 +84,5 @@
   (info "Starting peer 1")
   (create-database! uri)
   (let [conn (d/connect uri)]
-    @(d/transact conn schema)
+    @(d/transact conn (concat append/schema))
     (start-server! conn)))

@@ -108,12 +108,18 @@
   []
   (cu/stop-daemon! pid-file))
 
+(defn install!
+  "Installs the peer jar."
+  [test]
+  (c/su
+    (c/exec :mkdir :-p dir)
+    (fs-cache/deploy-remote! (uberjar! test) jar)))
+
 (defrecord Peer []
   db/DB
   (setup! [this test node]
     (c/su
-      (c/exec :mkdir :-p dir)
-      (fs-cache/deploy-remote! (uberjar! test) jar)
+      (install! test)
       (start!)
       (client/await-open node)))
 
