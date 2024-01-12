@@ -19,17 +19,23 @@
 
 (def read-q
   "A query which finds all elements associated with a given key. We derive the
-  order from the associated txInstant, and then (relying on the fact that
+  order from the transaction time, and then (relying on the fact that
   elements are monotone inside a transaction) the value orders."
   '{; Having a :keys clause/key present in the query causes the :find values to
     ; be returned as a map (oooooh but it's also a tuple still!), kinda like
     ; `(zipmap keys find)`.
-    :find [?time ?element]
-    :keys [:time :element]
+    :find [?tx ?element]
+    :keys [:tx :element]
     :in   [$ ?k]
     :where [[?list :append/key ?k]
-            [?list :append/elements ?element ?tx]
-            [?tx   :db/txInstant ?time]]})
+            [?list :append/elements ?element ?tx]]})
+
+(defn read-k
+  "Reads the current value of list k from the DB."
+  [db k]
+  (->> (d/q read-q db k)
+       (sort-by (juxt (comp d/tx->t :tx) :element))
+       (mapv :element)))
 
 (defn apply-txn
   "Datomic has no concept of an interactive transaction, or a stored procedure
@@ -60,13 +66,8 @@
         ; associated txInstant, and then (relying on the fact that elements are
         ; monotone inside a transaction) the value orders.
         state (reduce
-                (fn read-k [state k]
-                  (let [r (d/q read-q db k)]
-                    (prn :r r)
-                    (->> r
-                         (sort-by (juxt :time :element))
-                         (mapv :element)
-                         (assoc state k))))
+                (fn get-k [state k]
+                  (assoc state k (read-k db k)))
                 {}
                 (set (mapv second reads)))
         ;_ (prn :state)
@@ -103,8 +104,14 @@
   [conn txn]
   ;(info :handle-txn txn)
   ; First, submit the transaction for writing
-  (let [{:keys [db-before]}
+  (let [{:keys [db-before db-after]}
         @(d/transact conn [['jepsen.datomic.peer.append/apply-txn-datomic txn]])
         ; Re-run the query to get the completed txn.
         [_ txn'] (apply-txn db-before txn)]
-    txn'))
+    {:t   (d/basis-t db-before)
+     :t'  (d/basis-t db-after)
+     :txn txn'
+     :state (->> (map second txn)
+                 distinct
+                 (map (juxt identity (partial read-k db-before)))
+                 (into (sorted-map)))}))

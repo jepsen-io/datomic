@@ -23,9 +23,13 @@
 
   (invoke! [this test op]
     (c/with-errors op
-      (assoc op
-             :type :ok
-             :value (c/req! node [:txn] (:value op)))))
+      (let [{:keys [txn t t' state]} (c/req! node :txn (:value op))]
+        (assoc op
+               :type  :ok
+               :value txn
+               :t     t
+               :t'    t'
+               :state state))))
 
   (teardown! [this test])
 
