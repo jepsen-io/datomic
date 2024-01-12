@@ -3,6 +3,7 @@
   (:require [clojure [pprint :refer [pprint]]]
             [clojure.tools.logging :refer [info warn]]
             [datomic.api :as d]
+            [jepsen.datomic.peer [core :as c]]
             [slingshot.slingshot :refer [try+ throw+]]))
 
 (def schema
@@ -15,6 +16,20 @@
     :db/valueType   :db.type/long
     :db/cardinality :db.cardinality/many
     :db/doc         "A single element in an append workload"}])
+
+(def read-q
+  "A query which finds all elements associated with a given key. We derive the
+  order from the associated txInstant, and then (relying on the fact that
+  elements are monotone inside a transaction) the value orders."
+  '{; Having a :keys clause/key present in the query causes the :find values to
+    ; be returned as a map (oooooh but it's also a tuple still!), kinda like
+    ; `(zipmap keys find)`.
+    :find [?time ?element]
+    :keys [:time :element]
+    :in   [$ ?k]
+    :where [[?list :append/key ?k]
+            [?list :append/elements ?element ?tx]
+            [?tx   :db/txInstant ?time]]})
 
 (defn apply-txn
   "Datomic has no concept of an interactive transaction, or a stored procedure
@@ -41,53 +56,55 @@
                             {:append/key k
                              :append/elements v})
                           appends)
-        ; Construct read set
-        reads      (set (mapv second reads))
-        ; Query db for state of all read keys
+        ; Query db for state of all read keys. We derive the order from the
+        ; associated txInstant, and then (relying on the fact that elements are
+        ; monotone inside a transaction) the value orders.
         state (reduce
                 (fn read-k [state k]
-                  (assoc state k
-                         (d/q '{:find [?k ?element]
-                                :in   [$ ?k]
-                                :where [[?list :append/key ?k]
-                                        [?list :append/elements ?element]]}
-                              db
-                              k)))
+                  (let [r (d/q read-q db k)]
+                    (prn :r r)
+                    (->> r
+                         (sort-by (juxt :time :element))
+                         (mapv :element)
+                         (assoc state k))))
                 {}
-                reads)
+                (set (mapv second reads)))
+        ;_ (prn :state)
+        ;_ (pprint state)
         ; Quick interpreter: run through micro-ops and apply each to state
         [_s datomic-txn jepsen-txn']
         (reduce
           (fn mop [[state datomic-txn jepsen-txn'] [f k v :as mop]]
             (case f
               :r
-              [(assoc state k v)
+              [state
                datomic-txn
-               (conj jepsen-txn' [f k (get state k)])])
+               (conj jepsen-txn' [f k (get state k)])]
 
               :append
               [(assoc state k (conj (get state k []) v))
                (conj datomic-txn {:append/key k, :append/elements v})
-               (conj jepsen-txn' mop)])
+               (conj jepsen-txn' mop)]))
           [state [] []]
           txn)]
     [datomic-txn jepsen-txn']))
 
 (defn apply-txn-datomic
-  "Like apply-txn, but just returns the Datomic txn data."
+  "Like apply-txn, but transforms txn back into Clojure data, and just returns
+  the Datomic txn data."
   [db txn]
-  (first (apply-txn db txn)))
+  (->> txn
+       c/->clj
+       (apply-txn db)
+       first))
 
 (defn handle-txn
   "Handles a txn request"
   [conn txn]
-  (info :handle-txn txn)
+  ;(info :handle-txn txn)
   ; First, submit the transaction for writing
-  (let [_ (info :txn (pr-str txn))
-        {:keys [db-before]}
-        @(d/transact conn
-                       [[#'jepsen.datomic.peer.append/apply-txn-datomic txn]])
+  (let [{:keys [db-before]}
+        @(d/transact conn [['jepsen.datomic.peer.append/apply-txn-datomic txn]])
         ; Re-run the query to get the completed txn.
-        _ (info :db-before db-before)
         [_ txn'] (apply-txn db-before txn)]
     txn'))

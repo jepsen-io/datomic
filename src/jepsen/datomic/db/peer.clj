@@ -101,6 +101,7 @@
     "-server"
     "-Djava.net.preferIPv4Stack=true"
     "-jar" jar
+    "serve"
     (dc/storage-uri)))
 
 (defn stop!

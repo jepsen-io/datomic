@@ -144,6 +144,11 @@
   db/LogFiles
   (log-files [this test node]
     (merge {transactor-log-file "transactor.log"}
+           (try+ (->> (cu/ls-full (str datomic-dir "/log"))
+                      (map-indexed (fn [i file]
+                                     [file (str "transactor-" i ".log")]))
+                      (into {}))
+                 (catch [:exit 2] _))
            (db/log-files peer test node))))
 
 (defn dynamo-db

@@ -56,7 +56,7 @@
          :headers {"Content-Type" "application/edn"}
          :body    (pr-str {:type    (str (class e))
                            :message (.getMessage e)
-                           :data    (pr-str (ex-info e))})})
+                           :data    (pr-str (ex-data e))})})
       (catch Exception e
         (warn e "Error during request handling")
         {:status  500
@@ -76,13 +76,38 @@
     (while true
       (Thread/sleep 1000))))
 
+(defn self-test
+  "Runs a simple self-test. Helpful for debugging. You probably want to run the
+  test once to set up Dynamo etc, grab the full command to run the jar from the
+  top of store/latest/n3/peer.log, and then run that with `test` instead of
+  `serve`."
+  [conn]
+  (info "Append")
+  (d/transact conn [[:db/retractEntity [:append/key 0]]])
+  (info (append/handle-txn conn [[:append 0 0]]))
+  (info (append/handle-txn conn [[:r 0 nil]]))
+  (info (append/handle-txn conn [[:r 0 nil] [:append 0 1] [:r 0 nil] [:append 0 2]]))
+  (info (append/handle-txn conn [[:r 0 nil]])))
+
 (defn -main
-  "CLI entry point"
-  [uri]
+  "CLI entry point. Two commands:
+
+  serve - Runs a web server that takes Jepsen requests and executes them
+  test  - For local development, simulates a simple request"
+  [cmd uri]
   (start-logging! {:console true
-                   :level "info"})
+                   :level "info"
+                   :overrides {"datomic.peer"            :warn
+                               "datomic.kv-cluster"      :warn
+                               "datomic.log"             :warn
+                               "datomic.domain"          :warn
+                               "datomic.process-monitor" :warn}})
   (info "Starting peer 1")
   (create-database! uri)
   (let [conn (d/connect uri)]
     @(d/transact conn (concat append/schema))
-    (start-server! conn)))
+    (case cmd
+      "serve" (start-server! conn)
+      "test"  (self-test conn))
+    (shutdown-agents)
+    (System/exit 0)))
