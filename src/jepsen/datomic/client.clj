@@ -8,7 +8,8 @@
             [org.httpkit.client :as http]
             [slingshot.slingshot :refer [try+ throw+]])
   (:import (org.httpkit ProtocolException)
-           (java.io InputStreamReader
+           (java.io ByteArrayInputStream
+                    InputStreamReader
                     PushbackReader)
            (java.net ConnectException
                      SocketException)))
@@ -35,7 +36,8 @@
 (defn read-stream
   "Reads a single EDN value from an inputstream."
   [stream]
-  (with-open [r   (InputStreamReader. stream)
+  (with-open [stream (ByteArrayInputStream. (.getBytes stream))
+              r   (InputStreamReader. stream)
               pbr (PushbackReader. r)]
     (edn/read pbr)))
 
@@ -48,8 +50,8 @@
                   (mapv path-fragment)
                   (str/join "/"))
         res @(http/post (str "http://" node ":" port "/" path)
-                        {:body (pr-str body)
-                         :as :stream
+                        {:body      (pr-str body)
+                         :as        :text
                          :keepalive -1})]
     ;(pprint res)
     (when-let [err (:error res)]
@@ -57,7 +59,10 @@
     (when (<= 400 (:status res))
       ; Do we have an EDN body?
       (if-let [b (:body res)]
-        (throw+ (read-stream b))
+        (let [parsed (read-stream b)]
+          (info :raw-body    (pr-str b))
+          (info :parsed-body (pr-str parsed))
+          (throw+ parsed))
         (throw+ res)))
     (read-stream (:body res))))
 
@@ -90,4 +95,9 @@
          #"Connection reset"
          (assoc ~op :type :info, :error [:conn-reset])
 
-         (throw e#)))))
+         (throw e#)))
+
+     (catch [:cognitect.anomalies/category :cognitect.anomalies/unavailable] e#
+       (assoc ~op
+              :type  :info
+              :error [:unavailable (:cognitect.anomalies/message e#)]))))

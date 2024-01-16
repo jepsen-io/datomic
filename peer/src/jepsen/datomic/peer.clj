@@ -18,19 +18,67 @@
   "What port do we bind our HTTP interface to?"
   8000)
 
+(defn await-fn
+  "Invokes a function (f) repeatedly. Blocks until (f) returns, rather than
+  throwing. Returns that return value. Catches Exceptions (except for
+  InterruptedException) and retries them automatically. Options:
+
+    :retry-interval   How long between retries, in ms. Default 1s.
+    :log-interval     How long between logging that we're still waiting, in ms.
+                      Default `retry-interval.
+    :log-message      What should we log to the console while waiting?
+    :timeout          How long until giving up and throwing :type :timeout, in
+                      ms. Default 60 seconds."
+  ([f]
+   (await-fn f {}))
+  ([f opts]
+   (let [log-message    (:log-message opts (str "Waiting for " f "..."))
+         retry-interval (:retry-interval opts 1000)
+         log-interval   (:log-interval opts retry-interval)
+         timeout        (:timeout opts 60000)
+         t0             (System/nanoTime)
+         log-deadline   (atom (+ t0 (* 1e6 log-interval)))
+         deadline       (+ t0 (* 1e6 timeout))]
+     (loop []
+       (let [res (try
+                   (f)
+                   (catch InterruptedException e
+                     (throw e))
+                   (catch Exception e
+                     (let [now (System/nanoTime)]
+                       ; Are we out of time?
+                       (when (<= deadline now)
+                         (throw+ {:type :timeout} e))
+
+                       ; Should we log something?
+                       (when (<= @log-deadline now)
+                         (info log-message)
+                         (swap! log-deadline + (* log-interval 1e6)))
+
+                       ; Right, sleep and retry
+                       (Thread/sleep retry-interval)
+                       ::retry)))]
+         (if (= ::retry res)
+           (recur)
+           res))))))
+
 (defn create-database!
-  "Creates database in a loop, retrying when the transactors aren't ready yet."
+  "Creates database."
   [uri]
-  (loop [backoff 10] ; ms
-    (info "Creating database" uri)
-    (let [r (try (d/create-database uri)
-                 (catch java.lang.IllegalArgumentException e
-                   (if (re-find #":db\.error/read-transactor-location-failed" (.getMessage e))
-                     :retry
-                     (throw e))))]
-      (when (= r :retry)
-        (do (Thread/sleep backoff)
-            (recur (min 5000 (* 2 backoff))))))))
+  (d/create-database uri)
+  :done)
+
+(defmacro unwrap-ee
+  "Datomic throws ExecutionExceptions wrapping the actual error, which means we
+  can't do try/catch dispatch on exception types. This macro evaluates body,
+  catches EEs, and rethrows their causes. Doing this causes us to lose the
+  stacktrace of the caller though, so we log the full exception here."
+  [& body]
+  `(try
+     ~@body
+     (catch ExecutionException e#
+       (warn e# "Error during request handling")
+       (throw (.getCause e#)))))
 
 (defn make-http-app
   "Takes a Datomic connection and returns a Ring app: a function which takes
@@ -38,30 +86,26 @@
   [conn]
   (fn app [req]
     (try
-      (info (with-out-str (pprint req)))
-      (let [body (with-open [r   (InputStreamReader. (:body req))
-                             pbr (PushbackReader. r)]
-                   (edn/read pbr))
-            res (case (:uri req)
-                  "/health" :ok
-                  "/txn" (append/handle-txn conn body))]
-        {:status  200
-         :headers {"Content-Type" "application/edn"}
-         :body    (pr-str res)})
-      (catch ExecutionException e
-        (warn e "Error during request handling")
-        (throw (.getCause e)))
+      (unwrap-ee
+        ;(info (with-out-str (pprint req)))
+        (let [body (with-open [r   (InputStreamReader. (:body req))
+                               pbr (PushbackReader. r)]
+                     (edn/read pbr))
+              res (case (:uri req)
+                    "/health" :ok
+                    "/txn" (append/handle-txn conn body))]
+          {:status  200
+           :headers {"Content-Type" "application/edn"}
+           :body    (pr-str res)}))
       (catch ExceptionInfo e
         {:status  500
          :headers {"Content-Type" "application/edn"}
-         :body    (pr-str {:type    (str (class e))
-                           :message (.getMessage e)
-                           :data    (pr-str (ex-data e))})})
+         :body    (pr-str (ex-data e))})
       (catch Exception e
         (warn e "Error during request handling")
         {:status  500
          :headers {"Content-Type" "application/edn"}
-         :body    (pr-str {:type    (str (class e))
+         :body    (pr-str {:type    (.getName (class e))
                            :message (.getMessage e)})}))))
 
 (defn start-server!
@@ -103,9 +147,15 @@
                                "datomic.domain"          :warn
                                "datomic.process-monitor" :warn}})
   (info "Starting peer 1")
-  (create-database! uri)
-  (let [conn (d/connect uri)]
-    @(d/transact conn (concat append/schema))
+  (await-fn (partial create-database! uri)
+            {:log-message "Ensuring DB exists"
+             :timeout     Long/MAX_VALUE})
+  (let [conn (await-fn (partial d/connect uri)
+                       {:log-message "Connecting to Datomic"
+                        :timeout Long/MAX_VALUE})]
+    (await-fn #(deref (d/transact conn (concat append/schema)))
+              {:log-message "Ensuring schema"
+               :timeout     Long/MAX_VALUE})
     (case cmd
       "serve" (start-server! conn)
       "test"  (self-test conn))
