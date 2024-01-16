@@ -47,7 +47,7 @@
   [opts]
   (let [workload-name (:workload opts)
         workload      ((workloads workload-name) opts)
-        db            (db/dynamo-db opts)
+        db            (db/db opts)
         os            debian/os
         nemesis       (nc/nemesis-package
                         {:db db
