@@ -48,28 +48,30 @@
     ; of calling db/setup!
     (install-prereqs!)
     ; Installing the peer is slow, so we parallelize installation/config
-    (let [peer (future
-                 (with-thread-name (str "jepsen node " node " peer")
-                   (cond (peer? test node)
-                         (db/setup! peer test node)
+    (let [peer-fut
+          (future
+            (with-thread-name (str "jepsen node " node " peer")
+              (cond (peer? test node)
+                    (db/setup! peer test node)
 
-                         ; We still want a copy of the peer lib on the
-                         ; classpath so we can call its fns in transactions.
-                         (transactor? test node)
-                         (db.peer/install! test))))
-          transactor (future
-                       (with-thread-name (str "jepsen node " node " tranactor")
-                         (when (transactor? test node)
-                           (db.transactor/install! test)
-                           (db.transactor/configure! test)
-                           (when (= node (jepsen/primary test))
-                             (db.transactor/setup-dynamo! test)))))]
+                    ; We still want a copy of the peer lib on the
+                    ; classpath so we can call its fns in transactions.
+                    (transactor? test node)
+                    (db.peer/install! test))))
+          transactor-fut
+          (future
+            (with-thread-name (str "jepsen node " node " tranactor")
+              (when (transactor? test node)
+                (db.transactor/install! test)
+                (db.transactor/configure! test)
+                (when (= node (jepsen/primary test))
+                  (db.transactor/setup-dynamo! test)))))]
       ; We need the peer jar and transactor installed before we can start the
       ; transactor
-      @peer
-      @transactor
+      @peer-fut
+      @transactor-fut
       (when (transactor? test node)
-        (db.transactor/start!))))
+        (db/start! transactor test node))))
 
   (teardown! [this test node]
     (when (transactor? test node)
@@ -80,7 +82,20 @@
   db/LogFiles
   (log-files [this test node]
     (merge (db/log-files transactor test node)
-           (db/log-files peer test node))))
+           (db/log-files peer test node)))
+
+  db/Kill
+  (start! [this test node]
+    {:transactor (when (transactor? test node)
+                   (db/start! transactor test node))
+     :peer (when (peer? test node)
+             (db/start! peer test node))})
+
+  (kill! [this test node]
+    {:transactor (when (transactor? test node)
+                   (db/kill! transactor test node))
+     :peer (when (peer? test node)
+             (db/kill! peer test node))}))
 
 (defn db
   "Constructs a fresh Jepsen DB with a peer and transactor."

@@ -25,6 +25,14 @@
   "The properties file for Datomic's transactor."
   (str dir "/transactor.properties"))
 
+(def service
+  "The SystemD service name"
+  "datomic-transactor")
+
+(def service-file
+  "Where we put the SystemD unit file"
+  (str "/etc/systemd/system/" service ".service"))
+
 (def pid-file
   "The pidfile for the transactor daemon."
   (str dir "/transactor.pid"))
@@ -32,16 +40,6 @@
 (def log-file
   "The stdout logfile for the transactor."
   (str dir "/transactor.log"))
-
-(defn install!
-  "Installs the Datomic distribution."
-  [test]
-  (c/su
-    ; Install Datomic itself
-    (cu/install-archive!
-      (str "https://datomic-pro-downloads.s3.amazonaws.com/"
-           (:version test) "/datomic-pro-" (:version test) ".zip")
-      dir)))
 
 (defn env
   "Constructs an env var map for bin/transactor, bin/datomic, etc."
@@ -53,6 +51,30 @@
                                    "--add-opens java.xml/com.sun.org.apache.xpath.internal=ALL-UNNAMED")
           ; Add our custom txn fns to the classpath
           "DATOMIC_EXT_CLASSPATH" db.peer/jar}))
+
+(defn install!
+  "Installs the Datomic distribution."
+  [test]
+  (c/su
+    ; Install Datomic itself
+    (cu/install-archive!
+      (str "https://datomic-pro-downloads.s3.amazonaws.com/"
+           (:version test) "/datomic-pro-" (:version test) ".zip")
+      dir)
+    ; And write a transactor service file
+    (-> (io/resource "transactor.service")
+        slurp
+        (str/replace #"%DIR%" dir)
+        (str/replace #"%ENV%" (->> (env)
+                                  (map (fn [[k v]]
+                                         (str "Environment=\"" k "=" v "\"")))
+                                  (str/join "\n")))
+        (str/replace #"%EXEC_START%"
+                     (str dir "/bin/transactor "
+                          "-Ddatomic.printconnectionInfo=true "
+                          properties-file))
+        (cu/write-file! service-file))
+    (c/exec :systemctl :daemon-reload)))
 
 (defn datomic!
   "Runs a bin/datomic command with arguments, providing various env vars."
@@ -79,21 +101,23 @@
 (defn start!
   "Launches the transactor daemon."
   []
-  (cu/start-daemon!
-    {:chdir   dir
-     :logfile log-file
-     :pidfile pid-file
-     :env     (env)}
-    "bin/transactor"
-    "-Ddatomic.printConnectionInfo=true"
-    properties-file))
+  (info "Starting transactor...")
+  (c/su (c/exec :systemctl :start service))
+  :started)
 
 (defn stop!
   "Kills the transactor daemon."
   []
-  (cu/stop-daemon! pid-file))
+  (info "Killing transactor...")
+  (c/su
+    (cu/grepkill! "^java.+transactor\\.properties")
+    (try+
+      (c/exec :systemctl :stop service)
+      :killed
+      (catch [:exit 5] _
+        :doesn't-exist))))
 
-(defrecord DynamoDB [peer]
+(defrecord DynamoDB []
   db/DB
   (setup! [this test node]
     ; Handled by jepsen.datomic.db
@@ -113,9 +137,16 @@
                       (map-indexed (fn [i file]
                                      [file (str "transactor-" i ".log")]))
                       (into {}))
-                 (catch [:exit 2] _)))))
+                 (catch [:exit 2] _))))
+
+  db/Kill
+  (start! [this test node]
+    (start!))
+
+  (kill! [this test node]
+    (stop!)))
 
 (defn dynamo-db
   "Constructs a fresh DynamoDB-backed transactor DB."
   [opts]
-  (DynamoDB. (db.peer/db opts)))
+  (DynamoDB.))

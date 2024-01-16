@@ -1,0 +1,9 @@
+[Unit]
+Description=Datomic Transactor
+StartLimitIntervalSec=0
+
+[Service]
+WorkingDirectory=%DIR%
+%ENV%
+ExecStart=%EXEC_START%
+Restart=on-failure

@@ -131,7 +131,14 @@
 
   db/LogFiles
   (log-files [this test node]
-    {log-file "peer.log"}))
+    {log-file "peer.log"})
+
+  db/Kill
+  (start! [this test node]
+    (start!))
+
+  (kill! [this test node]
+    (stop!)))
 
 (defn db
   "Constructs a new Peer DB"
