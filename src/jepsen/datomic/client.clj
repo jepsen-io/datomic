@@ -7,9 +7,11 @@
             [jepsen [util :as util]]
             [org.httpkit.client :as http]
             [slingshot.slingshot :refer [try+ throw+]])
-  (:import (java.io InputStreamReader
+  (:import (org.httpkit ProtocolException)
+           (java.io InputStreamReader
                     PushbackReader)
-           (java.net ConnectException)))
+           (java.net ConnectException
+                     SocketException)))
 
 (def port
   "What port does the peer's HTTP service listen on?"
@@ -47,7 +49,8 @@
                   (str/join "/"))
         res @(http/post (str "http://" node ":" port "/" path)
                         {:body (pr-str body)
-                         :as :stream})]
+                         :as :stream
+                         :keepalive -1})]
     ;(pprint res)
     (when-let [err (:error res)]
       (throw err))
@@ -71,5 +74,20 @@
   [op & body]
   `(try+
      ~@body
+     (catch ProtocolException e#
+       (condp re-find (.getMessage e#)
+         #"No status" (assoc ~op :type :info, :error [:no-status])
+         (throw e#)))
+
      (catch ConnectException e#
-       (assoc ~op :type :fail, :error :conn-refused))))
+       (assoc ~op :type :fail, :error [:conn-refused (.getMessage e#)]))
+
+     (catch SocketException e#
+       (condp re-find (.getMessage e#)
+         #"Connection reset by peer"
+         (assoc ~op :type :info, :error [:conn-reset-by-peer])
+
+         #"Connection reset"
+         (assoc ~op :type :info, :error [:conn-reset])
+
+         (throw e#)))))
