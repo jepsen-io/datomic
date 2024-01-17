@@ -5,6 +5,7 @@
               [clojure.tools.logging :refer [info warn]]
               [cognitect.aws.client.api :as aws]
               [cognitect.aws.credentials :as aws.creds]
+              [dom-top.core :refer [with-retry]]
               [jepsen.util :refer [await-fn]]
               [jepsen.datomic [core :as dc]]
               [slingshot.slingshot :refer [try+ throw+]]))
@@ -111,8 +112,21 @@
       (aws-invoke i {:op :DeleteRole
                      :request {:RoleName role}}))))
 
-(defn delete-all!
+(defn delete-all*!
   "Cleans up all Datomic-related AWS resources."
   []
   (delete-dynamo-table!)
   (delete-iam-roles!))
+
+(defn delete-all!
+  "Cleans up all Datomic-related AWS resources. Retries
+  ResourceInUseExceptions."
+  []
+  (with-retry [attempts 10]
+    (try+
+      (delete-all*!)
+      (catch [:cognitect.aws.error/code "ResourceInUseException"] e
+        (when (pos? attempts)
+          (Thread/sleep 2000)
+          (retry (dec attempts)))
+        (throw+ e)))))

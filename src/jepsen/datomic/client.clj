@@ -82,6 +82,8 @@
          (throw e#)))
 
      (catch ConnectException e#
+       ; Slow down requests here so we don't spam down nodes super fast
+       (Thread/sleep 1000)
        (assoc ~op :type :fail, :error [:conn-refused (.getMessage e#)]))
 
      (catch SocketException e#
@@ -95,6 +97,8 @@
          (throw e#)))
 
      (catch [:cognitect.anomalies/category :cognitect.anomalies/unavailable] e#
+       ; Slow these down too
+       (Thread/sleep 100)
        (assoc ~op
               :type  (if (:definite? e#)
                        :fail
