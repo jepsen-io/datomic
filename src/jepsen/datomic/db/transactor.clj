@@ -79,8 +79,9 @@
 (defn datomic!
   "Runs a bin/datomic command with arguments, providing various env vars."
   [& args]
-  (c/cd dir
-        (apply c/exec (c/env (env)) "bin/datomic" args)))
+  (c/su
+    (c/cd dir
+          (apply c/exec (c/env (env)) "bin/datomic" args))))
 
 (defn configure!
   "Writes initial config file"
