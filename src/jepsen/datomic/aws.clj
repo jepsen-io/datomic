@@ -122,11 +122,12 @@
   "Cleans up all Datomic-related AWS resources. Retries
   ResourceInUseExceptions."
   []
-  (with-retry [attempts 10]
+  (with-retry [attempts 30]
     (try+
       (delete-all*!)
       (catch [:cognitect.aws.error/code "ResourceInUseException"] e
-        (when (pos? attempts)
-          (Thread/sleep 2000)
-          (retry (dec attempts)))
-        (throw+ e)))))
+        (when (zero? attempts)
+          (throw+ e))
+        (info "Resource in use, retrying...")
+        (Thread/sleep 2000)
+        (retry (dec attempts))))))

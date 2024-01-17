@@ -42,6 +42,6 @@
                          :min-key-length
                          :max-txn-length
                          :max-writes-per-key])
-      (assoc :consistency-models [:strong-session-serializable])
+      (assoc :consistency-models [(:consistency-model opts)])
       append/test
       (assoc :client (Client. nil))))
