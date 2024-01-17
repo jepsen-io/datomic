@@ -25,7 +25,7 @@ newer JDK, you can run:
 ```bash
 sudo sed -i 's/bookworm/trixie/g' /etc/apt/sources.list.d/debian.sources
 sudo apt update
-sudo apt install openjdk-22-jdk-headless
+sudo apt install -y openjdk-22-jdk-headless
 ```
 
 This test runs Datomic on top of DynamoDB. You'll need an AWS account, and an

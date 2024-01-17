@@ -27,7 +27,10 @@
 
 (def all-nemeses
   "Combinations of nemeses we run by default."
-  [])
+  [[]
+   [:kill]
+   [:pause]
+   [:kill, :pause]])
 
 (def special-nemeses
   "A map of special nemesis names to collections of faults."
