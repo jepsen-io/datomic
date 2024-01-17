@@ -30,7 +30,8 @@
   [[]
    [:kill]
    [:pause]
-   [:kill, :pause]])
+   [:clock]
+   [:kill, :pause, :clock]])
 
 (def special-nemeses
   "A map of special nemesis names to collections of faults."
