@@ -105,12 +105,16 @@
   (c/su (c/exec :systemctl :start service))
   :started)
 
+(def kill-pattern
+  "A pattern matching the process for grepkill"
+  "^java.+transactor\\.properties")
+
 (defn stop!
   "Kills the transactor daemon."
   []
   (info "Killing transactor...")
   (c/su
-    (cu/grepkill! "^java.+transactor\\.properties")
+    (cu/grepkill! kill-pattern)
     (try+
       (c/exec :systemctl :stop service)
       :killed
@@ -144,7 +148,14 @@
     (start!))
 
   (kill! [this test node]
-    (stop!)))
+    (stop!))
+
+  db/Pause
+  (pause! [this test node]
+    (c/su (cu/grepkill! :stop kill-pattern)))
+
+  (resume! [this test node]
+    (c/su (cu/grepkill! :cont kill-pattern))))
 
 (defn dynamo-db
   "Constructs a fresh DynamoDB-backed transactor DB."

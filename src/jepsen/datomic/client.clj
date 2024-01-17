@@ -8,6 +8,7 @@
             [org.httpkit.client :as http]
             [slingshot.slingshot :refer [try+ throw+]])
   (:import (org.httpkit ProtocolException)
+           (org.httpkit.client TimeoutException)
            (java.io ByteArrayInputStream
                     InputStreamReader
                     PushbackReader)
@@ -51,6 +52,7 @@
         res @(http/post (str "http://" node ":" port "/" path)
                         {:body      (pr-str body)
                          :as        :stream
+                         :timeout   2000
                          :keepalive -1})]
     ;(pprint res)
     (when-let [err (:error res)]
@@ -96,7 +98,14 @@
 
          (throw e#)))
 
+     (catch TimeoutException e#
+       (assoc ~op :type :info, :error [:http-timeout (.getMessage e#)]))
+
+     (catch [:db/error :db.error/transaction-timeout] e#
+       (assoc ~op :type :info, :error [:txn-timeout]))
+
      (catch [:cognitect.anomalies/category :cognitect.anomalies/unavailable] e#
+       ;(info :unavailable (pr-str e#))
        ; Slow these down too
        (Thread/sleep 100)
        (assoc ~op

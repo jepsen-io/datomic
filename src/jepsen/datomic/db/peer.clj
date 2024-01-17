@@ -92,22 +92,24 @@
 (defn start!
   "Starts the peer app as a daemon."
   []
-  (cu/start-daemon!
-    {:chdir   dir
-     :logfile log-file
-     :pidfile pid-file
-     :env     (aws/env)}
-    "/usr/bin/java"
-    "-server"
-    "-Djava.net.preferIPv4Stack=true"
-    "-jar" jar
-    "serve"
-    (dc/storage-uri)))
+  (c/su
+    (cu/start-daemon!
+      {:chdir   dir
+       :logfile log-file
+       :pidfile pid-file
+       :env     (aws/env)}
+      "/usr/bin/java"
+      "-server"
+      "-Djava.net.preferIPv4Stack=true"
+      "-jar" jar
+      "serve"
+      (dc/storage-uri))))
 
 (defn stop!
   "Stops the peer app daemon."
   []
-  (cu/stop-daemon! pid-file))
+  (c/su
+    (cu/stop-daemon! pid-file)))
 
 (defn install!
   "Installs the peer jar."
@@ -138,7 +140,14 @@
     (start!))
 
   (kill! [this test node]
-    (stop!)))
+    (stop!))
+
+  db/Pause
+  (pause! [this test node]
+    (c/su (cu/grepkill! :stop (str "java .+ -jar " jar))))
+
+  (resume! [this test node]
+    (c/su (cu/grepkill! :cont (str "java .+ -jar " jar)))))
 
 (defn db
   "Constructs a new Peer DB"

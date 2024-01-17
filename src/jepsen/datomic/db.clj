@@ -95,7 +95,20 @@
     {:transactor (when (transactor? test node)
                    (db/kill! transactor test node))
      :peer (when (peer? test node)
-             (db/kill! peer test node))}))
+             (db/kill! peer test node))})
+
+  db/Pause
+  (pause! [this test node]
+    {:transactor (when (transactor? test node)
+                   (db/pause! transactor test node))
+     :peer (when (peer? test node)
+             (db/pause! peer test node))})
+
+  (resume! [this test node]
+    {:transactor (when (transactor? test node)
+                   (db/resume! transactor test node))
+     :peer (when (peer? test node)
+             (db/resume! peer test node))}))
 
 (defn db
   "Constructs a fresh Jepsen DB with a peer and transactor."
