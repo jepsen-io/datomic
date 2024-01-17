@@ -108,15 +108,24 @@
   "Handles a txn request"
   [conn txn]
   ;(info :handle-txn txn)
-  (let [
-        {:keys [db-before db-after]}
+  (let [{:keys [db-before db-after]}
         (if (read-only? txn)
           ; No need to transact; just fetch local DB state
-          (let [db (d/db conn)]
-            {:db-before db
-             :db-after db})
+          (try+
+            (let [db (d/db conn)]
+              {:db-before db
+               :db-after db})
+            ; Any failures here are definite, since we never affect
+            ; state
+            (catch map? e
+              (throw+ (assoc e :definite? true))))
+
           ; Do our write txn
-          @(d/transact conn [['jepsen.datomic.peer.append/apply-txn-datomic txn]]))
+          (try+
+            @(d/transact conn [['jepsen.datomic.peer.append/apply-txn-datomic txn]])
+            (catch [:cognitect.anomalies/category :cognitect.anomalies/unavailable] e
+              ; This sounds like a definite error.
+              (throw+ (assoc e :definite? true)))))
         ; Re-run the query to get the completed txn.
         [_ txn'] (apply-txn db-before txn)]
     {:t   (d/basis-t db-before)

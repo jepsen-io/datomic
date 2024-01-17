@@ -36,8 +36,7 @@
 (defn read-stream
   "Reads a single EDN value from an inputstream."
   [stream]
-  (with-open [stream (ByteArrayInputStream. (.getBytes stream))
-              r   (InputStreamReader. stream)
+  (with-open [r   (InputStreamReader. stream)
               pbr (PushbackReader. r)]
     (edn/read pbr)))
 
@@ -51,7 +50,7 @@
                   (str/join "/"))
         res @(http/post (str "http://" node ":" port "/" path)
                         {:body      (pr-str body)
-                         :as        :text
+                         :as        :stream
                          :keepalive -1})]
     ;(pprint res)
     (when-let [err (:error res)]
@@ -60,8 +59,6 @@
       ; Do we have an EDN body?
       (if-let [b (:body res)]
         (let [parsed (read-stream b)]
-          (info :raw-body    (pr-str b))
-          (info :parsed-body (pr-str parsed))
           (throw+ parsed))
         (throw+ res)))
     (read-stream (:body res))))
@@ -99,5 +96,7 @@
 
      (catch [:cognitect.anomalies/category :cognitect.anomalies/unavailable] e#
        (assoc ~op
-              :type  :info
+              :type  (if (:definite? e#)
+                       :fail
+                       :info)
               :error [:unavailable (:cognitect.anomalies/message e#)]))))

@@ -105,8 +105,9 @@
         (warn e "Error during request handling")
         {:status  500
          :headers {"Content-Type" "application/edn"}
-         :body    (pr-str {:type    (.getName (class e))
-                           :message (.getMessage e)})}))))
+         :body    (pr-str {:definite? false
+                           :type      (.getName (class e))
+                           :message   (.getMessage e)})}))))
 
 (defn start-server!
   "Starts the HTTP server, given a Datomic connection."
