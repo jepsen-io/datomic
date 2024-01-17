@@ -124,8 +124,8 @@
           (try+
             @(d/transact conn [['jepsen.datomic.peer.append/apply-txn-datomic txn]])
             (catch [:cognitect.anomalies/category :cognitect.anomalies/unavailable] e
-              ; This sounds like a definite error.
-              (throw+ (assoc e :definite? true)))))
+              ; This is *not* a definite error.
+              (throw+ (assoc e :definite? false)))))
         ; Re-run the query to get the completed txn.
         [_ txn'] (apply-txn db-before txn)]
     {:t   (d/basis-t db-before)
