@@ -23,7 +23,9 @@
 
   (invoke! [this test op]
     (c/with-errors op
-      (let [{:keys [txn t t' state]} (c/req! node :txn (:value op))]
+      (let [{:keys [txn t t' state]}
+            (c/req! node :txn {:txn  (:value op)
+                               :sync? (:sync test)})]
         (assoc op
                :type  :ok
                :value txn

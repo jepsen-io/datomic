@@ -104,17 +104,29 @@
   [txn]
   (every? (comp #{:r} first) txn))
 
+(defn db
+  "Gets the state of the DB, optionally syncing."
+  [conn sync?]
+  (if sync?
+    ; Do a synchronous read
+    (let [db (deref (d/sync conn) 1000 ::timeout)]
+      (when (= db ::timeout)
+        (throw+ {:type :sync-timeout, :definite? true}))
+      db)
+    ; Use local cache
+    (d/db conn)))
+
 (defn handle-txn
   "Handles a txn request"
-  [conn txn]
+  [conn {:keys [txn sync?] :as req}]
   ;(info :handle-txn txn)
   (let [{:keys [db-before db-after]}
         (if (read-only? txn)
           ; No need to transact; just fetch local DB state
           (try+
-            (let [db (d/db conn)]
+            (let [db (db conn sync)]
               {:db-before db
-               :db-after db})
+               :db-after  db})
             ; Any failures here are definite, since we never affect
             ; state
             (catch map? e

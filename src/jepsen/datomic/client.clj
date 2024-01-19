@@ -101,6 +101,11 @@
      (catch TimeoutException e#
        (assoc ~op :type :info, :error [:http-timeout (.getMessage e#)]))
 
+     (catch [:type :sync-timeout] e#
+       (assoc ~op
+              :type  (if (:definite? e#) :fail :info)
+              :error [:sync-timeout]))
+
      (catch [:db/error :db.error/transaction-timeout] e#
        (assoc ~op :type :info, :error [:txn-timeout]))
 
@@ -110,7 +115,5 @@
        (Thread/sleep 100)
        ;(info :unavailable-err (pr-str e#) (pr-str (:definite? e#)))
        (assoc ~op
-              :type  (if (:definite? e#)
-                       :fail
-                       :info)
+              :type  (if (:definite? e#) :fail :info)
               :error [:unavailable (:cognitect.anomalies/message e#)]))))

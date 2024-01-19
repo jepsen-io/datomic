@@ -67,6 +67,7 @@
     (merge tests/noop-test
            opts
            {:name (str (name workload-name)
+                       (when (:sync opts) " sync")
                        " " (str/join "," (map name (:nemesis opts))))
             :os os
             :db db
@@ -132,6 +133,9 @@
     :default 100
     :parse-fn read-string
     :validate [pos? "Must be a positive number."]]
+
+   ["-s" "--sync" "Issue a `sync` call before any read-only queries"
+    :default false]
 
    ["-v" "--version STRING" "What version of Datomic should we install?"
     :default "1.0.7075"]
