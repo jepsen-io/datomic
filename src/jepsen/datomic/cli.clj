@@ -29,16 +29,17 @@
 (def all-nemeses
   "Combinations of nemeses we run by default."
   [[]
+   [:partition]
    [:partition-storage]
    [:kill]
    [:pause]
    [:clock]
-   [:kill, :pause, :clock, :partition-storage]])
+   [:kill, :pause, :clock, :partition, :partition-storage]])
 
 (def special-nemeses
   "A map of special nemesis names to collections of faults."
   {:none []
-   :all [:pause :kill :partition-storage :clock]})
+   :all [:pause :kill :partition :partition-storage :clock]})
 
 (defn parse-nemesis-spec
   "Takes a comma-separated nemesis string and returns a collection of keyword
@@ -115,8 +116,12 @@
 
    [nil "--nemesis FAULTS" "A comma-separated list of nemesis faults to enable"
     :parse-fn parse-nemesis-spec
-    :validate [(partial every? #{:pause :kill :partition-storage :clock})
-               "Faults must be pause, kill, partition-storage, clock, or the special faults all or none."]]
+    :validate [(partial every? #{:pause
+                                 :kill
+                                 :partition
+                                 :partition-storage
+                                 :clock})
+               "Faults must be pause, kill, partition, partition-storage, clock, or the special faults all or none."]]
 
    [nil "--nemesis-interval SECS" "Roughly how long between nemesis operations."
     :default  10
