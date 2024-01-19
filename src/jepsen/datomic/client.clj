@@ -108,6 +108,7 @@
        ;(info :unavailable (pr-str e#))
        ; Slow these down too
        (Thread/sleep 100)
+       ;(info :unavailable-err (pr-str e#) (pr-str (:definite? e#)))
        (assoc ~op
               :type  (if (:definite? e#)
                        :fail

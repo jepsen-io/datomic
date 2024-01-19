@@ -10,7 +10,8 @@
                     [tests :as tests]
                     [util :as util]]
             [jepsen.checker.timeline :as timeline]
-            [jepsen.datomic [db :as db]]
+            [jepsen.datomic [db :as db]
+                            [nemesis :as dn]]
             [jepsen.datomic.workload [append :as append]]
             [jepsen.nemesis.combined :as nc]
             [jepsen.os.debian :as debian]))
@@ -28,15 +29,16 @@
 (def all-nemeses
   "Combinations of nemeses we run by default."
   [[]
+   [:partition-storage]
    [:kill]
    [:pause]
    [:clock]
-   [:kill, :pause, :clock]])
+   [:kill, :pause, :clock, :partition-storage]])
 
 (def special-nemeses
   "A map of special nemesis names to collections of faults."
   {:none []
-   :all [:pause :kill :partition :clock]})
+   :all [:pause :kill :partition-storage :clock]})
 
 (defn parse-nemesis-spec
   "Takes a comma-separated nemesis string and returns a collection of keyword
@@ -53,7 +55,7 @@
         workload      ((workloads workload-name) opts)
         db            (db/db opts)
         os            debian/os
-        nemesis       (nc/nemesis-package
+        nemesis       (dn/nemesis-package
                         {:db db
                          :nodes (:nodes opts)
                          :faults (:nemesis opts)
@@ -101,11 +103,6 @@
     :parse-fn parse-long
     :validate [pos? "Must be a positive integer"]]
 
-   [nil "--nemesis FAULTS" "A comma-separated list of nemesis faults to enable"
-    :parse-fn parse-nemesis-spec
-    :validate [(partial every? #{:pause :kill :partition :clock})
-               "Faults must be pause, kill, partition, clock, or member, or the special faults all or none."]]
-
    [nil "--max-txn-length NUM" "Maximum number of operations in a transaction."
     :default  4
     :parse-fn parse-long
@@ -115,6 +112,11 @@
     :default  16
     :parse-fn parse-long
     :validate [pos? "Must be a positive integer."]]
+
+   [nil "--nemesis FAULTS" "A comma-separated list of nemesis faults to enable"
+    :parse-fn parse-nemesis-spec
+    :validate [(partial every? #{:pause :kill :partition-storage :clock})
+               "Faults must be pause, kill, partition-storage, clock, or the special faults all or none."]]
 
    [nil "--nemesis-interval SECS" "Roughly how long between nemesis operations."
     :default  10
