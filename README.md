@@ -9,6 +9,8 @@ automatically-numbered IAM roles beginning with this prefix. It is probably a
 bad idea to give this test access to an AWS account that stores Datomic data
 you care about.</b>
 
+<b>WARNING: THIS TEST LEAKS IAM CREDENTIALS.</b> Don't share the results of test runs with people you don't want having your IAM keys.
+
 ## Quickstart
 
 ```
