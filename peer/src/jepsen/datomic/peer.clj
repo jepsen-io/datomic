@@ -93,7 +93,8 @@
                      (edn/read pbr))
               res (case (:uri req)
                     "/health" :ok
-                    "/txn" (append/handle-txn conn body))]
+                    "/stats"  (d/db-stats (d/db conn))
+                    "/txn"    (append/handle-txn conn body))]
           {:status  200
            :headers {"Content-Type" "application/edn"}
            :body    (pr-str res)}))

@@ -10,7 +10,8 @@
                     [tests :as tests]
                     [util :as util]]
             [jepsen.checker.timeline :as timeline]
-            [jepsen.datomic [db :as db]
+            [jepsen.datomic [checker :as datomic.checker]
+                            [db :as db]
                             [nemesis :as dn]]
             [jepsen.datomic.workload [append :as append]]
             [jepsen.nemesis.combined :as nc]
@@ -28,18 +29,18 @@
 
 (def all-nemeses
   "Combinations of nemeses we run by default."
-  [[]
-   [:partition]
-   [:partition-storage]
-   [:kill]
-   [:pause]
-   [:clock]
-   [:kill, :pause, :clock, :partition, :partition-storage]])
+  [[:stats]
+   [:stats, :partition]
+   [:stats, :partition-storage]
+   [:stats, :kill]
+   [:stats, :pause]
+   [:stats, :clock]
+   [:stats, :kill, :pause, :clock, :partition, :partition-storage]])
 
 (def special-nemeses
   "A map of special nemesis names to collections of faults."
   {:none []
-   :all [:pause :kill :partition :partition-storage :clock]})
+   :all [:stats, :pause :kill :partition :partition-storage :clock]})
 
 (defn parse-nemesis-spec
   "Takes a comma-separated nemesis string and returns a collection of keyword
@@ -71,12 +72,14 @@
                        " " (str/join "," (map name (:nemesis opts))))
             :os os
             :db db
+            :plot    {:nemeses (:perf nemesis)}
             :checker (checker/compose
-                                      {:perf (checker/perf {:nemeses (:perf nemesis)})
-                                       :clock (checker/clock-plot)
-                                       :stats (checker/stats)
-                                       :exceptions (checker/unhandled-exceptions)
-                                       :workload (:checker workload)})
+                       {:perf  (checker/perf)
+                        :clock (checker/clock-plot)
+                        :stats (checker/stats)
+                        :datomic (datomic.checker/stats-checker)
+                        :exceptions (checker/unhandled-exceptions)
+                        :workload (:checker workload)})
             :client (:client workload)
             :nemesis (:nemesis nemesis nemesis/noop)
             :generator (->> (:generator workload)
@@ -101,7 +104,10 @@
     :parse-fn parse-long]
 
    [nil "--key-count NUM" "Number of keys in active rotation."
-    :default  10
+    ; Note: we go super large because we want to very occasionally affect keys
+    ; that have fallen into cold storage tiers, even over tests of a billion
+    ; txns.
+    :default  25
     :parse-fn parse-long
     :validate [pos? "Must be a positive integer"]]
 
@@ -111,9 +117,14 @@
     :validate [pos? "Must be a positive integer"]]
 
    [nil "--max-writes-per-key NUM" "Maximum number of writes to any given key."
-    :default  16
+    :default  32
     :parse-fn parse-long
     :validate [pos? "Must be a positive integer."]]
+
+   [nil "--min-txn-length NUM" "Minumum number of operations in a transaction."
+    :default  1
+    :parse-fn parse-long
+    :validate [pos? "Must be a positive integer"]]
 
    [nil "--nemesis FAULTS" "A comma-separated list of nemesis faults to enable"
     :parse-fn parse-nemesis-spec
@@ -121,7 +132,8 @@
                                  :kill
                                  :partition
                                  :partition-storage
-                                 :clock})
+                                 :clock
+                                 :stats})
                "Faults must be pause, kill, partition, partition-storage, clock, or the special faults all or none."]]
 
    [nil "--nemesis-interval SECS" "Roughly how long between nemesis operations."

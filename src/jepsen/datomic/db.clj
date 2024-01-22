@@ -34,6 +34,16 @@
   [test node]
   (= :peer (get (node-roles test) node)))
 
+(defn peers
+  "All peers in a test."
+  [test]
+  (->> (node-roles test)
+       (keep (fn [[node role]]
+               (when (= role :peer)
+                 node)))
+
+       vec))
+
 (defn install-prereqs!
   "Prerequisites for DB, transactors, etc."
   []

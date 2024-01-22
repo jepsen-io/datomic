@@ -9,7 +9,9 @@
                     [generator :as gen]
                     [net :as net]
                     [util :as util]]
-            [jepsen.datomic [core :as dc]]
+            [jepsen.datomic [client :as client]
+                            [core :as core]
+                            [db :as db]]
             [jepsen.nemesis.combined :as nc]
             [org.httpkit.client :as http]
             [slingshot.slingshot :refer [try+ throw+]]))
@@ -25,7 +27,7 @@
               (json/parse-stream r true))
         ddbs (->> (:prefixes ips)
                   (filter (fn [p]
-                            (and (= dc/region (:region p))
+                            (and (= core/region (:region p))
                                  (= "DYNAMODB" (:service p)))))
                   (mapv :ip_prefix))]
     ddbs))
@@ -91,11 +93,47 @@
               :stop  #{:heal-storage}
               :color "#E9A447"}}}))
 
+(defn stats-nemesis
+  "A nemesis that fetches stats from a random peer."
+  ([]
+   (stats-nemesis nil))
+  ([peers]
+   (reify n/Nemesis
+     (setup! [this test]
+       (stats-nemesis (db/peers test)))
+
+     (invoke! [this test op]
+       (assert (= :stats (:f op)))
+       (assoc op :value (client/req! (rand-nth peers) :stats nil)))
+
+     (teardown! [this test])
+
+     n/Reflection
+     (fs [this]
+       #{:stats}))))
+
+(defn stats-gen
+  "Generator for stats operations every 5 seconds"
+  []
+  (->> (repeat {:type :info, :f :stats})
+       (gen/delay 5)))
+
+(defn stats-package
+  "Nemesis stats package"
+  [opts]
+  (when (contains? (:faults opts) :stats)
+    {:nemesis   (stats-nemesis)
+     :generator (stats-gen)
+     :perf #{{:name :stats
+              :fs #{:stats}
+              :color "#E4FFCC"}}}))
+
 (defn nemesis-package
   "Takes CLI opts. Constructs a nemesis and generator for the test."
   [opts]
   (let [opts (update opts :faults set)]
     (->> (nc/nemesis-packages opts)
-         (concat [(partition-storage-package opts)])
+         (concat [(partition-storage-package opts)
+                  (stats-package opts)])
          (remove nil?)
          nc/compose-packages)))
