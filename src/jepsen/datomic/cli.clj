@@ -100,7 +100,7 @@
     :parse-fn parse-long]
 
    [nil "--dynamo-write-capacity UNITS" "How many units of read capacity to give DynamoDB."
-    :default 250
+    :default 500
     :parse-fn parse-long]
 
    [nil "--key-count NUM" "Number of keys in active rotation."
