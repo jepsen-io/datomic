@@ -12,8 +12,10 @@
                  [cheshire "5.12.0"]
                  [http-kit "2.7.0"]
                  [jepsen "0.3.5-SNAPSHOT"]
+                 [elle "0.2.1-SNAPSHOT"]
                  [slingshot "0.12.2"]]
   :main jepsen.datomic.cli
   :jvm-opts ["-Djava.awt.headless=true"
-             "-server"]
+             "-server"
+             "-Xmx80G"]
   :repl-options {:init-ns jepsen.datomic.cli})
