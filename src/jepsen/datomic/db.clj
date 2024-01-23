@@ -67,7 +67,7 @@
                     ; We still want a copy of the peer lib on the
                     ; classpath so we can call its fns in transactions.
                     (transactor? test node)
-                    (db.peer/install! test))))
+                    (db.peer/install-jar! test))))
           transactor-fut
           (future
             (with-thread-name (str "jepsen node " node " tranactor")

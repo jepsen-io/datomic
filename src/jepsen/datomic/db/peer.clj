@@ -43,6 +43,14 @@
   "Where do we put the fat jar?"
   (str dir "/peer.jar"))
 
+(def service
+  "The systemd service name"
+  "datomic-peer")
+
+(def service-file
+  "Where do we write the systemd service file?"
+  (str "/etc/systemd/system/" service ".service"))
+
 (def log-file
   "Stdout logs for the peer."
   (str dir "/peer.log"))
@@ -91,39 +99,67 @@
 
 (defn start!
   "Starts the peer app as a daemon."
-  []
-  (c/su
-    (cu/start-daemon!
-      {:chdir   dir
-       :logfile log-file
-       :pidfile pid-file
-       :env     (aws/env)}
-      "/usr/bin/java"
-      "-server"
-      "-Djava.net.preferIPv4Stack=true"
-      "-jar" jar
-      "serve"
-      (dc/storage-uri))))
+  [test]
+  (info "Starting peer")
+  (c/su (c/exec :systemctl :start service)))
+
+(def kill-pattern
+  "A pattern matching the process for grepkill"
+  (str "java.+ -jar " jar))
 
 (defn stop!
   "Stops the peer app daemon."
   []
   (c/su
-    (cu/stop-daemon! pid-file)))
+    (cu/grepkill! kill-pattern)
+    (try+
+      (c/exec :systemctl :stop service)
+      :killed
+      (catch [:exit 5] _
+        :doesn't-exist))))
 
-(defn install!
+(defn install-jar!
   "Installs the peer jar."
   [test]
   (c/su
     (c/exec :mkdir :-p dir)
     (fs-cache/deploy-remote! (uberjar! test) jar)))
 
+(defn install-service!
+  "Installs the systemd service"
+  [test]
+  (c/su
+    (-> (io/resource "peer.service")
+        slurp
+        (str/replace #"%DIR%" dir)
+        (str/replace #"%LOG_FILE%" log-file)
+        (str/replace #"%ENV%" (->> (aws/env)
+                                   (map (fn [[k v]] (str
+                                                      "Environment=\""
+                                                      k "=" v "\"")))
+                                   (str/join "\n")))
+        (str/replace #"%EXEC_START%"
+                     (str "/usr/bin/java"
+                          " -server"
+                          " -Djava.net.preferIPv4Stack=true"
+                          ; See https://docs.datomic.com/pro/configuration/system-properties.html#peer-properties
+                          " -Ddatomic.txTimeoutMsec=2000"
+                          ; We use a smaller cache size to force Datomic to pull data from storage
+                          ; more often
+                          " -Ddatomic.objectCacheMax=" (:object-cache-max test)
+                          " -jar " jar
+                          " serve"
+                          " " (dc/storage-uri)))
+        (cu/write-file! service-file))
+    (c/exec :systemctl :daemon-reload)))
+
 (defrecord Peer []
   db/DB
   (setup! [this test node]
     (c/su
-      (install! test)
-      (start!)
+      (install-jar! test)
+      (install-service! test)
+      (start! test)
       (client/await-open node)))
 
   (teardown! [this test node]
@@ -137,7 +173,7 @@
 
   db/Kill
   (start! [this test node]
-    (start!))
+    (start! test))
 
   (kill! [this test node]
     (stop!))

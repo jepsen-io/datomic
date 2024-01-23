@@ -65,8 +65,12 @@
 (defn create-database!
   "Creates database."
   [uri]
-  (d/create-database uri)
-  :done)
+  (try
+    (d/create-database uri)
+    :done
+    (catch Exception e
+      (warn e "Couldn't create database")
+      (throw e))))
 
 (defmacro unwrap-ee
   "Datomic throws ExecutionExceptions wrapping the actual error, which means we

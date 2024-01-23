@@ -1,5 +1,5 @@
 [Unit]
-Description=Datomic Transactor
+Description=Datomic Peer
 StartLimitIntervalSec=0
 
 [Service]

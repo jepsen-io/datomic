@@ -30,7 +30,7 @@
   "datomic-transactor")
 
 (def service-file
-  "Where we put the SystemD unit file"
+  "Where we put the systemd unit file"
   (str "/etc/systemd/system/" service ".service"))
 
 (def pid-file
@@ -65,6 +65,7 @@
     (-> (io/resource "transactor.service")
         slurp
         (str/replace #"%DIR%" dir)
+        (str/replace #"%LOG_FILE%" log-file)
         (str/replace #"%ENV%" (->> (env)
                                   (map (fn [[k v]]
                                          (str "Environment=\"" k "=" v "\"")))
@@ -90,6 +91,9 @@
     (-> (io/resource "transactor.properties")
         slurp
         (str/replace #"%HOST%" (cn/local-ip))
+        (str/replace #"%OBJECT_CACHE_MAX%"       (:object-cache-max test))
+        (str/replace #"%MEMORY_INDEX_THRESHOLD%" (:memory-index-threshold test))
+        (str/replace #"%MEMORY_INDEX_MAX%"       (:memory-index-max test))
         (cu/write-file! properties-file))))
 
 (defn setup-dynamo!

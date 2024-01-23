@@ -9,8 +9,6 @@ automatically-numbered IAM roles beginning with this prefix. It is probably a
 bad idea to give this test access to an AWS account that stores Datomic data
 you care about.</b>
 
-<b>WARNING: THIS TEST LEAKS IAM CREDENTIALS.</b> Don't share the results of test runs with people you don't want having your IAM keys.
-
 ## Quickstart
 
 ```
@@ -97,7 +95,12 @@ Copy the access key and secret, and create a file in the top-level
  :secret-key "123..."}
 ```
 
-The test will use this file to provision and talk to DynamoDB.
+The test will use this file to provision and talk to DynamoDB and other AWS
+resources. It will also provide these credentials to both transactor and peer,
+so they can interact with Dynamo. Credentials are stored in
+`/etc/systemd/system/datomic-transactor.service` on transactors, and
+`/etc/systemd/system/datomic-peer.service` on peers, and are passed in as
+environment variables to the actual transactor and peer processes by systemd.
 
 ## Design
 

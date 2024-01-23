@@ -121,6 +121,14 @@
     :parse-fn parse-long
     :validate [pos? "Must be a positive integer."]]
 
+   [nil "--memory-index-threshold SIZE" "Datomic's memory index threshold, for transactors."
+    :default "16m"
+    :validate [#(re-find #"^\d+[kmg]$") "should be something like 2m or 15g"]]
+
+   [nil "--memory-index-max SIZE" "Datomic's memory index maximum, for transactors."
+    :default "32m"
+    :validate [#(re-find #"^\d+[kmg]$") "should be something like 2m or 15g"]]
+
    [nil "--min-txn-length NUM" "Minumum number of operations in a transaction."
     :default  1
     :parse-fn parse-long
@@ -140,6 +148,10 @@
     :default  10
     :parse-fn read-string
     :validate [pos? "Must be a positive number."]]
+
+   [nil "--object-cache-max SIZE" "Maximum size of the object cache, for both transactors and peers."
+    :default "64m"
+    :validate [#(re-find #"^\d+[kmg]$") "should be something like 2m or 15g"]]
 
    ["-r" "--rate HZ" "Approximate request rate, in hz"
     :default 100
