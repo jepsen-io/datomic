@@ -17,5 +17,5 @@
   :main jepsen.datomic.cli
   :jvm-opts ["-Djava.awt.headless=true"
              "-server"
-             "-Xmx80G"]
+             "-Xmx50G"]
   :repl-options {:init-ns jepsen.datomic.cli})

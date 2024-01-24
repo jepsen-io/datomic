@@ -126,7 +126,7 @@
      :generator (stats-gen)
      :perf #{{:name :stats
               :fs #{:stats}
-              :color "#E4FFCC"}}}))
+              :hidden? true}}}))
 
 (defn nemesis-package
   "Takes CLI opts. Constructs a nemesis and generator for the test."

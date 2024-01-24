@@ -22,17 +22,24 @@
                              (identical? :stats (.f op))
                              (.value op))))
                     (t/map (fn [{:keys [time value]}]
-                             {:time   (util/nanos->secs time)
-                              :datoms (:datoms value)
-                              :keys   (:append/key value)
-                              :txInstant (:txInstant value)}))
+                             (let [attrs (:attrs value)]
+                               ;(info :attrs attrs)
+                               {:time      (util/nanos->secs time)
+                                :datoms    (:datoms value)
+                                :keys      (:count (:append/key attrs))
+                                :txInstant (:count (:db/txInstant attrs))})))
                     (t/into [])
                     (h/tesser history))
-        series [:datoms :keys :txInstant]]
+        series [:datoms :keys :txInstant]
+        _ (info "Have" (count points) "points")
+        ;points (take 5 points)
+        ]
     ; Pull apart into different series
     (zipmap series
             (mapv (fn [series]
-                    (mapv (juxt :time series) points))
+                    (->> points
+                         (filter series)
+                         (mapv (juxt :time series))))
                   series))))
 
 (defn stats-checker
@@ -42,6 +49,7 @@
     (check [this test history opts]
       (when (seq history)
         (let [datasets (stats-datasets history)
+              ;_ (info (with-out-str (pprint datasets)))
               output-path (.getCanonicalPath
                             (store/path! test
                                          (:subdirectory opts)
@@ -55,9 +63,11 @@
                                     :data points})
                                  (sort datasets))}]
           (when (perf/has-data? plot)
+            ;(info "Plotting to" output-path)
             (-> plot
                 (perf/without-empty-series)
                 (perf/with-range)
                 (perf/with-nemeses history (:nemeses (:plot test)))
-                (perf/plot!)))))
+                (perf/plot!))
+            ;(info "Plot complete"))))
       {:valid? true})))
