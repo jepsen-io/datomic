@@ -69,5 +69,6 @@
                 (perf/with-range)
                 (perf/with-nemeses history (:nemeses (:plot test)))
                 (perf/plot!))
-            ;(info "Plot complete"))))
+            ;(info "Plot complete")
+            )))
       {:valid? true})))

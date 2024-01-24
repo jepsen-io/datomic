@@ -64,6 +64,7 @@
                          :partition {:targets [:one :majority]}
                          :pause {:targets [:one :majority :all]}
                          :kill {:targets [:one :majority :all]}
+                         :stable-period (:nemesis-stable-period opts)
                          :interval (:nemesis-interval opts)})]
     (merge tests/noop-test
            opts
@@ -148,6 +149,11 @@
    [nil "--nemesis-interval SECS" "Roughly how long between nemesis operations."
     :default  10
     :parse-fn read-string
+    :validate [pos? "Must be a positive number."]]
+
+   [nil "--nemesis-stable-period SECS" "If given, rotates the mixture of nemesis faults over time with roughly this period."
+    :default nil
+    :parse-fn parse-long
     :validate [pos? "Must be a positive number."]]
 
    [nil "--object-cache-max SIZE" "Maximum size of the object cache, for both transactors and peers."
