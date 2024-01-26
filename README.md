@@ -112,8 +112,11 @@ To use an existing DynamoDB table, try
 lein run test --dynamo-table datomic-jepsen --aws-transactor-role datomic-aws-transactor --aws-peer-role datomic-aws-peer ...
 ```
 
-For full docs, see `lein run test --help`.
+To sync on every read, use `--sync`.
 
+To test an alternate Datomic version, use (e.g.) `--version 1.0.7021`. This controls the version used by both transactor and peer.
+
+For full docs, see `lein run test --help`.
 
 ## Design
 

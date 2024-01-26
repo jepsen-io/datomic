@@ -6,8 +6,8 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/tools.logging "1.2.4"]
                  [com.amazonaws/aws-java-sdk-dynamodb "1.12.564"]
-                 ; TODO: draw this from the CLI version?
-                 [com.datomic/peer "1.0.7075"
+                 [com.datomic/peer ~(or (System/getenv "DATOMIC_VERSION")
+                                        "1.0.7075")
                   :exclusions [org.slf4j/slf4j-nop org.slf4j/slf4j-log4j12]]
                  [ch.qos.logback/logback-classic "1.0.1"]
                  [http-kit "2.7.0"]

@@ -60,6 +60,7 @@
   "Pidfile for the peer."
   (str dir "/peer.pid"))
 
+; Unused for now
 (defn tar!
   "Creates a tarball of a local directory and sticks it in the FS cache under
   the given path. Returns the fs cache path."
@@ -69,6 +70,7 @@
       local-dir)
   fs-cache-path)
 
+; Also unused, might be helpful later
 (defn untar!
   "Takes a remote path to a tarball, and a remote directory, and untars it
   there. Returns remote directory."
@@ -78,14 +80,15 @@
 (defn uberjar!
   "Builds a fat jar of the peer app and caches it. Returns cache path."
   [test]
-  (let [path [:datomic :peer]]
+  (let [path [:datomic :peer (:version test)]]
     (fs-cache/locking path
       (when (or (and (:clean-peer test)
                      (not @cleaned?))
                 (not (fs-cache/cached? path)))
         (info "Building peer jar")
         (let [env (-> (into {} (System/getenv))
-                      (dissoc "CLASSPATH"))
+                      (dissoc "CLASSPATH")
+                      (assoc "DATOMIC_VERSION" (:version test)))
               {:keys [out err exit] :as res}
               (sh "lein" "do" "clean," "uberjar" :dir "peer" :env env)]
           (when-not (zero? exit)
