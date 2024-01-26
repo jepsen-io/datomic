@@ -91,7 +91,11 @@
 
 (def cli-opts
   "Command-line option specification"
-  [[nil "--clean-peer" "If set, recompiles the peer code instead of using a cached copy."]
+  [[nil "--aws-transactor-role ROLE" "If provided, uses an existing AWS transactor role for Dynamo."]
+
+   [nil "--aws-peer-role ROLE" "If provided, uses an existing AWS peer role for Dynamo."]
+
+   [nil "--clean-peer" "If set, recompiles the peer code instead of using a cached copy."]
 
    ["-c" "--consistency-model MODEL" "What consistency model should we check for?"
     :default :strong-session-serializable
@@ -100,6 +104,8 @@
    [nil "--dynamo-read-capacity UNITS" "How many units of read capacity to give DynamoDB."
     :default 250
     :parse-fn parse-long]
+
+   [nil "--dynamo-table NAME" "If given, uses an existing Dynamo table. You must also specify --aws-transactor-role and --aws-peer-role. The table will not be created, provisioned, or deleted by Jepsen; the caller is responsible for doing so. This will break `test-all` and `--test-count`, both of which run multiple tests back-to-back and expect a fresh state each time."]
 
    [nil "--dynamo-write-capacity UNITS" "How many units of read capacity to give DynamoDB."
     :default 500

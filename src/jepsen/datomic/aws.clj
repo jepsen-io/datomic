@@ -44,7 +44,7 @@
 (defn provision-io!
   "Adjusts the provisioned throughput settings of the Datomic Dynamo table to
   match the test."
-  [test]
+  [test table]
   (await-fn
     (fn []
       (let [d (aws-client :dynamodb)
@@ -52,22 +52,23 @@
                       d
                       {:op :UpdateTable
                        :request
-                       {:TableName dc/dynamo-table
+                       {:TableName table
                         :ProvisionedThroughput
                         {:ReadCapacityUnits (:dynamo-read-capacity test)
                          :WriteCapacityUnits (:dynamo-write-capacity test)}}})]
         r))
     {:retry-interval 5000
-     :log-message "Waiting for Dynamo table to be created so we can provision it"
+     :log-message (str "Waiting for Dynamo table " table
+                       " to be created so we can provision it")
      :log-interval 10000}))
 
 (defn delete-dynamo-table!
   "Deletes the dynamo table we use."
-  []
-  (info "Deleting Dynamo table" dc/dynamo-table)
+  [table]
+  (info "Deleting Dynamo table" table)
   (try+ (let [d (aws-client :dynamodb)
               r (aws-invoke d {:op :DeleteTable
-                               :request {:TableName dc/dynamo-table}})]
+                               :request {:TableName table}})]
           (assert (= "DELETING" (:TableStatus (:TableDescription r)))
                   (pr-str r)))
         (catch [:cognitect.aws.error/code "ResourceNotFoundException"] _)))
@@ -114,17 +115,17 @@
 
 (defn delete-all*!
   "Cleans up all Datomic-related AWS resources."
-  []
-  (delete-dynamo-table!)
+  [table]
+  (delete-dynamo-table! table)
   (delete-iam-roles!))
 
 (defn delete-all!
-  "Cleans up all Datomic-related AWS resources. Retries
-  ResourceInUseExceptions."
-  []
+  "Takes a Dynamo table name. Cleans up all Datomic-related AWS resources.
+  Retries ResourceInUseExceptions."
+  [table]
   (with-retry [attempts 30]
     (try+
-      (delete-all*!)
+      (delete-all*! table)
       (catch [:cognitect.aws.error/code "ResourceInUseException"] e
         (when (zero? attempts)
           (throw+ e))

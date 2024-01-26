@@ -13,8 +13,10 @@
                             [util :as cu]]
             [jepsen.datomic [aws :as aws]
                             [client :as client]]
-            [jepsen.datomic.db [peer :as db.peer]
-                               [transactor :as db.transactor]]
+            [jepsen.datomic.db [datomic :as datomic]
+                               [peer :as peer]
+                               [storage :as storage]
+                               [transactor :as transactor]]
             [jepsen.os.debian :as debian]
             [slingshot.slingshot :refer [try+ throw+]]))
 
@@ -49,43 +51,20 @@
   []
   (debian/install ["openjdk-17-jdk-headless"]))
 
-(defrecord DB [transactor peer]
+(defrecord DB [datomic transactor peer]
   db/DB
   (setup! [this test node]
-    ; This is a little awkward--there's lots of ordering dependencies between
-    ; transactor and peer, but we want to parallelize as much as we can for
-    ; speed, so we actually drive a lot of the setup process ourselves instead
-    ; of calling db/setup!
     (install-prereqs!)
-    ; Installing the peer is slow, so we parallelize installation/config
-    (let [peer-fut
-          (future
-            (with-thread-name (str "jepsen node " node " peer")
-              (cond (peer? test node)
-                    (db/setup! peer test node)
-
-                    ; We still want a copy of the peer lib on the
-                    ; classpath so we can call its fns in transactions.
-                    (transactor? test node)
-                    (db.peer/install-jar! test))))
-          transactor-fut
-          (future
-            (with-thread-name (str "jepsen node " node " tranactor")
-              (when (transactor? test node)
-                (db.transactor/install! test)
-                (db.transactor/configure! test)
-                (when (= node (jepsen/primary test))
-                  (db.transactor/setup-dynamo! test)))))]
-      ; We need the peer jar and transactor installed before we can start the
-      ; transactor
-      @peer-fut
-      @transactor-fut
-      (when (transactor? test node)
-        (db/start! transactor test node))))
+    (when (peer? test node)
+      (db/setup! peer test node))
+    (when (transactor? test node)
+      (db/setup! datomic test node)
+      (db/setup! transactor test node)))
 
   (teardown! [this test node]
     (when (transactor? test node)
-      (db/teardown! transactor test node))
+      (db/teardown! transactor test node)
+      (db/teardown! datomic test node))
     (when (peer? test node)
       (db/teardown! peer test node)))
 
@@ -121,7 +100,13 @@
              (db/resume! peer test node))}))
 
 (defn db
-  "Constructs a fresh Jepsen DB with a peer and transactor."
+  "Takes CLI options. Constructs a fresh Jepsen DB with Datomic, storage,
+  transactor, and peer components"
   [opts]
-  (DB. (db.transactor/dynamo-db opts)
-       (db.peer/db opts)))
+  (let [datomic     (datomic/db opts)
+        storage     (storage/db opts)
+        peer        (peer/db opts storage)
+        transactor  (transactor/db opts storage peer)]
+    (map->DB {:datomic    datomic
+              :transactor transactor
+              :peer       peer})))

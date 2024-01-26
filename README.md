@@ -11,8 +11,10 @@ you care about.</b>
 
 ## Quickstart
 
+For a long test:
+
 ```
-lein run test TODO
+lein run test --concurrency 5n --rate 10000 --nemesis all --nemesis-stable-interval 100
 ```
 
 ## Setup
@@ -101,6 +103,17 @@ so they can interact with Dynamo. Credentials are stored in
 `/etc/systemd/system/datomic-transactor.service` on transactors, and
 `/etc/systemd/system/datomic-peer.service` on peers, and are passed in as
 environment variables to the actual transactor and peer processes by systemd.
+
+## Variations
+
+To use an existing DynamoDB table, try
+
+```
+lein run test --dynamo-table datomic-jepsen --aws-transactor-role datomic-aws-transactor --aws-peer-role datomic-aws-peer ...
+```
+
+For full docs, see `lein run test --help`.
+
 
 ## Design
 

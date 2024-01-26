@@ -17,6 +17,7 @@
             [jepsen.datomic [aws :as aws]
                             [core :as dc]
                             [client :as client]]
+            [jepsen.datomic.db [storage :as storage]]
             [jepsen.os.debian :as debian]
             [slingshot.slingshot :refer [try+ throw+]])
   (:import (java.io File)
@@ -127,7 +128,7 @@
 
 (defn install-service!
   "Installs the systemd service"
-  [test]
+  [test storage]
   (c/su
     (-> (io/resource "peer.service")
         slurp
@@ -149,16 +150,16 @@
                           " -Ddatomic.objectCacheMax=" (:object-cache-max test)
                           " -jar " jar
                           " serve"
-                          " " (dc/storage-uri)))
+                          " " (storage/uri storage test)))
         (cu/write-file! service-file))
     (c/exec :systemctl :daemon-reload)))
 
-(defrecord Peer []
+(defrecord Peer [storage]
   db/DB
   (setup! [this test node]
     (c/su
       (install-jar! test)
-      (install-service! test)
+      (install-service! test storage)
       (start! test)
       (client/await-open node)))
 
@@ -186,6 +187,6 @@
     (c/su (cu/grepkill! :cont (str "java .+ -jar " jar)))))
 
 (defn db
-  "Constructs a new Peer DB"
-  [opts]
-  (Peer.))
+  "Constructs a new Peer DB from CLI options and a Storage DB"
+  [opts storage]
+  (Peer. storage))
