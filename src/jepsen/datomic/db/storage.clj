@@ -49,7 +49,7 @@
 
   Storage
   (uri [this test]
-    (uri this core/db-name))
+    (uri this test core/db-name))
 
   (uri [this test db-name]
     (str "datomic:ddb://" core/region "/" table "/" db-name))
