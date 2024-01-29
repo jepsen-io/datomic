@@ -11,6 +11,7 @@
             [unilog.config :refer [start-logging!]])
   (:import (java.io InputStreamReader
                     PushbackReader)
+           (java.util Date)
            (java.util.concurrent ExecutionException)
            (clojure.lang ExceptionInfo)))
 
@@ -96,6 +97,8 @@
                                pbr (PushbackReader. r)]
                      (edn/read pbr))
               res (case (:uri req)
+                    "/gc"     (let [r (d/gc-storage conn (Date.))]
+                                [:ok r])
                     "/health" :ok
                     "/stats"  (d/db-stats (d/db conn))
                     "/txn"    (append/handle-txn conn body))]
@@ -152,7 +155,7 @@
                                "datomic.log"             :warn
                                "datomic.domain"          :warn
                                "datomic.process-monitor" :warn}})
-  (info "Starting peer 1")
+  (info "Starting peer:" uri)
   (await-fn (partial create-database! uri)
             {:log-message "Ensuring DB exists"
              :timeout     Long/MAX_VALUE})
