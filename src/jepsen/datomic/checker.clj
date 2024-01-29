@@ -31,7 +31,7 @@
                     (t/into [])
                     (h/tesser history))
         series [:datoms :keys :txInstant]
-        _ (info "Have" (count points) "points")
+        ;_ (info "Have" (count points) "points")
         ;points (take 5 points)
         ]
     ; Pull apart into different series

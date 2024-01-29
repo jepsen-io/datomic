@@ -11,11 +11,19 @@ you care about.</b>
 
 ## Quickstart
 
-For a long test:
+For a quick test with process pauses:
 
 ```
-lein run test --concurrency 5n --rate 10000 --nemesis all --nemesis-stable-interval 100
+lein run test --concurrency 2n --rate 500 --nemesis pause --time-limit 60
 ```
+
+For a long suite of tests:
+
+```
+lein run test-all --concurrency 5n --rate 10000 --nemesis-stable-interval 100 --time-limit 10000
+```
+
+This runs a whole sequence of tests with different choices of nemesis.
 
 ## Setup
 
@@ -33,7 +41,19 @@ sudo apt install -y openjdk-22-jdk-headless
 This test runs Datomic on top of DynamoDB. You'll need an AWS account, and an
 AWS IAM user for Datomic.
 
-To create a user, go to the [IAM
+There are two modes for AWS auth. You can let the test harness provision a DynamoDB table and various IAM roles for you, or you can provide an existing Dynamo table and handle IAM roles yourself.
+
+To handle Dynamo and IAM roles yourself, pass a dynamo table name and IAM roles
+to the test suite. The test suite will use the table you provided. Note that
+you cannot run more than one test in a row safely: `--test-count 4` and `lein
+run test-all` will keep using the same Dynamo table, leaking state from one run
+into the next.
+
+```
+lein run test --dynamo-table datomic-jepsen --aws-transactor-role datomic-aws-transactor --aws-peer-role datomic-aws-peer ...
+```
+
+To have the test suite provision Dynamo and roles for you, start by creating an IAM user. Go to the [IAM
 console](https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/users)
 and click "Create User". Choose a name (e.g. "datomic-jepsen") and click
 "Next". Choose "Attach policies directly", and create a policy adapted from [Datomic's
@@ -106,15 +126,12 @@ environment variables to the actual transactor and peer processes by systemd.
 
 ## Variations
 
-To use an existing DynamoDB table, try
-
-```
-lein run test --dynamo-table datomic-jepsen --aws-transactor-role datomic-aws-transactor --aws-peer-role datomic-aws-peer ...
-```
-
 To sync on every read, use `--sync`.
 
 To test an alternate Datomic version, use (e.g.) `--version 1.0.7021`. This controls the version used by both transactor and peer.
+
+To test a specific consistency model, use (e.g.) `--consistency-model
+strong-serializable`.
 
 For full docs, see `lein run test --help`.
 

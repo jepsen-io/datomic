@@ -80,7 +80,7 @@
                         :stats (checker/stats)
                         :datomic (datomic.checker/stats-checker)
                         :exceptions (checker/unhandled-exceptions)
-                        ;:workload (:checker workload)
+                        :workload (:checker workload)
                         })
             :client (:client workload)
             :nemesis (:nemesis nemesis nemesis/noop)
@@ -97,8 +97,7 @@
 
    [nil "--clean-peer" "If set, recompiles the peer code instead of using a cached copy."]
 
-   ["-c" "--consistency-model MODEL" "What consistency model should we check for?"
-    :default :strong-session-serializable
+   ["-c" "--consistency-model MODEL" "If specified, overrides the checker and verifies the given consistency model holds over the entire history."
     :parse-fn keyword]
 
    [nil "--dynamo-read-capacity UNITS" "How many units of read capacity to give DynamoDB."
