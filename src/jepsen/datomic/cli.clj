@@ -188,8 +188,14 @@
   [opts]
   (let [nemeses   (if-let [n (:nemesis opts)]  [n] all-nemeses)
         workloads (if-let [w (:workload opts)] [w] all-workloads)]
-    (for [n nemeses, w workloads, i (range (:test-count opts))]
-      (datomic-test (assoc opts :nemesis n :workload w)))))
+    (for [n     nemeses
+          w     workloads
+          sync  [true false]
+          i     (range (:test-count opts))]
+      (datomic-test (assoc opts
+                           :nemesis n
+                           :workload w
+                           :sync sync)))))
 
 (defn -main
   "Handles command line arguments. Can either run a test, or a web server for
