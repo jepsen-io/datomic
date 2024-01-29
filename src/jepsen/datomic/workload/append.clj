@@ -1,6 +1,7 @@
 (ns jepsen.datomic.workload.append
   "A simple append workload."
-  (:require [clojure.tools.logging :refer [info warn]]
+  (:require [clojure [pprint :refer [pprint]]]
+            [clojure.tools.logging :refer [info warn]]
             [dom-top.core :refer [loopr]]
             [elle.list-append :as elle]
             [jepsen [client :as client]

@@ -11,8 +11,7 @@
                  [org.clojure/clojure "1.11.1"]
                  [cheshire "5.12.0"]
                  [http-kit "2.7.0"]
-                 [jepsen "0.3.5-SNAPSHOT"]
-                 [elle "0.2.1-SNAPSHOT"]
+                 [jepsen "0.3.5"]
                  [slingshot "0.12.2"]]
   :main jepsen.datomic.cli
   :jvm-opts ["-Djava.awt.headless=true"
