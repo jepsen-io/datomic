@@ -2,36 +2,43 @@
   "Helpers for working with AWS stuff."
     (:require [clojure [edn :as edn]
                        [pprint :refer [pprint]]]
+              [clojure.java [io :as io]]
               [clojure.tools.logging :refer [info warn]]
               [cognitect.aws.client.api :as aws]
               [cognitect.aws.credentials :as aws.creds]
               [dom-top.core :refer [with-retry]]
               [jepsen.util :refer [await-fn]]
               [jepsen.datomic [core :as dc]]
-              [slingshot.slingshot :refer [try+ throw+]]))
+              [slingshot.slingshot :refer [try+ throw+]])
+  (:import (java.io File)))
 
-(def aws-file
+(def aws-file-name
   "Where do we store AWS credentials locally?"
   "aws.edn")
 
 (def aws
   "Returns AWS credentials from disk."
-  (memoize #(edn/read-string (slurp aws-file))))
+  (memoize #(let [aws-file (io/file aws-file-name)]
+              (when (.exists ^File aws-file)
+                (edn/read-string (slurp aws-file-name))))))
 
 (defn env
   "Returns an env var map for invoking Datomic JVM apps"
   []
-  {"AWS_ACCESS_KEY_ID" (:access-key-id (aws))
-   "AWS_SECRET_KEY"    (:secret-key (aws))})
+  (when-let [basic-creds (aws)]
+    {"AWS_ACCESS_KEY_ID" (:access-key-id basic-creds)
+     "AWS_SECRET_KEY"    (:secret-key basic-creds)}))
 
 (defn aws-client
-  "Constructs a new AWS client for the given API."
+  "Constructs a new AWS client for the given API, optionally
+  using local AWS credentials if they exist."
   [api]
-  (aws/client {:api api
-               :credentials-provider
-               (aws.creds/basic-credentials-provider
-                 {:access-key-id     (:access-key-id (aws))
-                  :secret-access-key (:secret-key (aws))})}))
+  (let [basic-creds (aws)]
+    (aws/client (cond-> {:api api}
+                        basic-creds (assoc :credentials-provider
+                                           (aws.creds/basic-credentials-provider
+                                             {:access-key-id     (:access-key-id basic-creds)
+                                              :secret-access-key (:secret-key basic-creds)}))))))
 
 (defn aws-invoke
   "Like aws/invoke, but throws exceptions on errors. I... I have questions."
