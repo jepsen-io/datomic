@@ -17,10 +17,17 @@ For a quick test with process pauses:
 lein run test --concurrency 2n --rate 500 --nemesis pause --time-limit 60
 ```
 
-For a very long suite of tests:
+For a long test which switches randomly between different subsets of all
+available nemeses:
 
 ```
-lein run test-all --concurrency 5n --rate 10000 --nemesis-stable-interval 100 --time-limit 10000 --test-count 30
+lein run test --concurrency 5n --rate 10000 --nemesis-stable-period 100 --time-limit 10000
+```
+
+For a very long suite of tests with different combinations of nemeses and sync:
+
+```
+lein run test-all --concurrency 5n --rate 10000 --nemesis-stable-period 100 --time-limit 10000 --test-count 10
 ```
 
 This runs a whole sequence of tests with different choices of nemesis.
