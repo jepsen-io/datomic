@@ -62,48 +62,48 @@
   [xs]
   (str/join "," xs))
 
+(defn datomic-txn
+  "Computes the datomic txn required to make the given DB state advance to the
+  given map of k1 -> [1 2 ...]"
+  [db state]
+  (reduce
+    (fn [txn [k elements']]
+      (if-let [{:keys [id elements]} (read-k db k)]
+        ; Update existing
+        (conj txn [:db/cas id :append-cas/elements elements (encode elements')])
+        ; Create new row
+        (-> txn
+            (conj [:db/add (str k) :append-cas/key k])
+            (conj [:db/add (str k) :append-cas/elements (encode elements')]))))
+    []
+    state))
+
 (defn apply-txn
-  "Runs a txn on a database state, producing [datomic-txn txn']. We use db/with
-  to play forward the state of the DB for internal reads. Our transaction ops
-  are all db/cas calls for updates, and a literal key+elements pair for the
-  insert."
+  "Runs a txn on a database state, producing [datomic-txn txn']. We build up a
+  map of state internally and produce a single CaS for each written key,
+  because it looks like CaS violates internal consistency."
   [db txn]
-  (loop [txn         txn
-         db'         db
-         datomic-txn []
-         txn'        []]
+  (loop [txn    txn
+         txn'   []
+         state  {}]
     (if-not (seq txn)
-      ; Done
-      [datomic-txn txn']
+      ; Done; compute Datomic writes
+      [(datomic-txn db state) txn']
       ; Handle mop
       (let [[f k v :as mop] (first txn)]
-        (info :mop mop :datomic-txn datomic-txn :txn' txn')
         (case f
           :r
-          (let [v (-> db' (read-k k) :elements decode)]
-            (recur (next txn) db' datomic-txn (conj txn' [f k v])))
+          (let [v (or (get state k)
+                      (-> db (read-k k) :elements decode))]
+            (recur (next txn) (conj txn' [f k v]) state))
 
           :append
-          (if-let [{:keys [id elements]} (read-k db' k)]
-            ; We have an existing entity and can emit a CaS for it.
-            (let [elements' (-> (decode elements)
-                              (conj v)
-                              encode)
-                  ops [[:db/cas id :append-cas/elements elements elements']]
-                        [; Ensure an entity with this key exists. We do this every
-                         ; single time--even if it already exists--because it
-                         ; forces the temp ID (str k) to resolve to the real entity
-                         ; ID, and we need that ID for the CAS op.
-                         [:db/add (str k) :append-cas/key k]
-                         ; Update via CaS. Note that elements will be nil if it
-                     ; doesn't exist.
-                     [:db/cas (str k) :append-cas/elements elements elements']]]
-            (info :ops (pr-str ops))
+          (let [elements (or (get state k)
+                             (-> db (read-k k) :elements decode)
+                             [])]
             (recur (next txn)
-                   ; Simulate application on local DB state
-                   (:db-after (d/with db' ops))
-                   (into datomic-txn ops)
-                   (conj txn' mop))))))))
+                   (conj txn' mop)
+                   (assoc state k (conj elements v)))))))))
 
 (defn db
   "Gets the state of the DB, optionally syncing."

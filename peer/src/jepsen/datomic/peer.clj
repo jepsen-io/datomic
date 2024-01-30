@@ -47,6 +47,7 @@
                    (catch InterruptedException e
                      (throw e))
                    (catch Exception e
+                     ;(warn e "retry")
                      (let [now (System/nanoTime)]
                        ; Are we out of time?
                        (when (<= deadline now)
