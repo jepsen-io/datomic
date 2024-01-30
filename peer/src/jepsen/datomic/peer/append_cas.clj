@@ -13,7 +13,7 @@
   [{:db/ident       :append-cas/key
     :db/valueType   :db.type/long
     :db/cardinality :db.cardinality/one
-    :db/unique      :db.unique/identity
+    :db/unique      :db.unique/value
     :db/doc         "The unique identifier for an append-cas list."}
    {:db/ident       :append-cas/elements
     :db/valueType   :db.type/string
@@ -48,6 +48,22 @@
   Returns a map of :id, :elements. Returns nil when not present."
   [db k]
   (first (d/q read-q db k)))
+
+;(defn cas-kv
+;  "Like db/cas, but updates using key, rather than entity ID.
+;  [db k v v']
+;  (if-let [id (-> '{:find [?id]
+;                    :in [$ ?k]
+;                    :where [[?id :append-cas/key ?k]]}
+;                  (d/q db k)
+;                  first
+;                  first)]
+;    ; Exists
+;    [[:db/cas id :append-cas/elements v v']]
+;    ; Does not exist
+;    (do (assert (nil? v))
+;        [[:db/add (str k) :append-cas/key k]
+;         [:db/add (str k) :append-cas/elements v']])))
 
 (defn decode
   "Decodes a comma separate string to a vector of longs. Nil decodes to []."
@@ -149,6 +165,7 @@
                   (throw+ (assoc e :definite? false))))
           ; Read-only, no effects
           {:db-before db, :db-after db})]
-    {:read-t  (d/basis-t db)
-     :write-t (d/basis-t db-after)
-     :txn      txn'}))
+    {:read-t        (d/basis-t db)
+     :write-t       (d/basis-t db-after)
+     :datomic-txn   datomic-txn
+     :txn           txn'}))

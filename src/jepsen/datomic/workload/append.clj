@@ -30,7 +30,7 @@
 
   (invoke! [this test op]
     (c/with-errors op
-      (let [{:keys [txn t t' state]}
+      (let [{:keys [txn t t' state datomic-txn]}
             (c/req! node path {:txn  (:value op)
                                :sync? (:sync test)})]
         (assoc op
@@ -38,7 +38,8 @@
                :value txn
                :t     t
                :t'    t'
-               :state state))))
+               :state state
+               :datomic-txn datomic-txn))))
 
   (teardown! [this test])
 

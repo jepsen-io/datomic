@@ -6,7 +6,8 @@
             [clojure.tools.logging :refer [info warn]]
             [datomic.api :as d]
             [jepsen.datomic.peer [append :as append]
-                                 [append-cas :as append-cas]]
+                                 [append-cas :as append-cas]
+                                 [internal :as internal]]
             [org.httpkit.server :as http-server]
             [slingshot.slingshot :refer [try+ throw+]]
             [unilog.config :refer [start-logging!]])
@@ -101,10 +102,11 @@
               res (case (:uri req)
                     "/gc"     (let [r (d/gc-storage conn (Date.))]
                                 [:ok r])
-                    "/health" :ok
-                    "/stats"  (d/db-stats (d/db conn))
-                    "/txn"    (append/handle-txn conn body)
-                    "/txn-cas" (append-cas/handle-txn conn body))]
+                    "/health"   :ok
+                    "/internal" (internal/handle-txn conn body)
+                    "/stats"    (d/db-stats (d/db conn))
+                    "/txn"      (append/handle-txn conn body)
+                    "/txn-cas"  (append-cas/handle-txn conn body))]
           {:status  200
            :headers {"Content-Type" "application/edn"}
            :body    (pr-str res)}))
@@ -170,7 +172,8 @@
                         :timeout Long/MAX_VALUE})]
     ; Create schema
     (await-fn #(deref (d/transact conn (concat append/schema
-                                               append-cas/schema)))
+                                               append-cas/schema
+                                               internal/schema)))
               {:log-message "Ensuring schema"
                :timeout     Long/MAX_VALUE})
     (case cmd
