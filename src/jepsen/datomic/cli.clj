@@ -13,15 +13,17 @@
             [jepsen.datomic [checker :as datomic.checker]
                             [db :as db]
                             [nemesis :as dn]]
-            [jepsen.datomic.workload [append :as append]]
+            [jepsen.datomic.workload [append :as append]
+                                     [append-cas :as append-cas]]
             [jepsen.nemesis.combined :as nc]
             [jepsen.os.debian :as debian]))
 
 (def workloads
   "A map of workload names to functions that take CLI options and return
   workload maps"
-  {:append append/workload
-   :none   (constantly tests/noop-test)})
+  {:append     append/workload
+   :append-cas append-cas/workload
+   :none       (constantly tests/noop-test)})
 
 (def all-workloads
   "A collection of workloads we run by default"

@@ -109,6 +109,11 @@
      (catch [:db/error :db.error/transaction-timeout] e#
        (assoc ~op :type :info, :error [:txn-timeout]))
 
+     (catch [:cognitect.anomalies/category :cognitect.anomalies/conflict] e#
+       (assoc ~op
+              :type :fail
+              :error [:conflict (:cognitect.anomalies/message e#)]))
+
      (catch [:cognitect.anomalies/category :cognitect.anomalies/unavailable] e#
        ;(info :unavailable (pr-str e#))
        ; Slow these down too

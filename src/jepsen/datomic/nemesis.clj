@@ -103,12 +103,16 @@
        (admin-nemesis (db/peers test)))
 
      (invoke! [this test op]
-       (case (:f op)
-         :gc
-         (assoc op :value (client/req! (rand-nth peers) :gc nil))
+       (-> (client/with-errors op
+             (case (:f op)
+               :gc
+               (assoc op :value (client/req! (rand-nth peers) :gc nil))
 
-         :stats
-         (assoc op :value (client/req! (rand-nth peers) :stats nil))))
+               :stats
+               (assoc op :value (client/req! (rand-nth peers) :stats nil))))
+           ; with-errors might try to make a definite :fail out of some
+           ; exceptions, so we just force type info here
+           (assoc :type :info)))
 
      (teardown! [this test])
 

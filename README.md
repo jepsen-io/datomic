@@ -140,6 +140,20 @@ To test an alternate Datomic version, use (e.g.) `--version 1.0.7021`. This cont
 To test a specific consistency model, use (e.g.) `--consistency-model
 strong-serializable`.
 
+Select faults to inject with (e.g.) `--nemesis partition,pause`:
+
+- `partition`: isolates nodes from one another
+- `partition-storage`: isolates nodes from storage
+- `pause`: pauses and resumes processes with SIGSTOP
+- `kill`: kills processes with SIGKILL
+- `clock`: introduces clock errors, including bumping the clock forward or back
+  by millis to hundreds of seconds, and strobing the clock rapidly between two
+  times.
+- `gc`: Requests that a random peer begin a garbage collection of all records
+  older than `new Date()`
+
+Nemesis actions occur roughly every `--nemesis-interval n` seconds.
+
 For full docs, see `lein run test --help`.
 
 ## Design

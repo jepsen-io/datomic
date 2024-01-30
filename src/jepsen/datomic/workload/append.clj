@@ -13,7 +13,7 @@
             [jepsen.tests.cycle.append :as append])
   (:import (jepsen.history Op)))
 
-(defrecord Client [node]
+(defrecord Client [path node]
   client/Client
   (open! [this test node]
     ; Some of our nodes don't answer queries, so we re-map everyone to other
@@ -31,7 +31,7 @@
   (invoke! [this test op]
     (c/with-errors op
       (let [{:keys [txn t t' state]}
-            (c/req! node :txn {:txn  (:value op)
+            (c/req! node path {:txn  (:value op)
                                :sync? (:sync test)})]
         (assoc op
                :type  :ok
@@ -108,5 +108,5 @@
                          :max-txn-length
                          :max-writes-per-key])
       append/test
-      (assoc :client (Client. nil)
+      (assoc :client (Client. :txn nil)
              :checker (checker))))

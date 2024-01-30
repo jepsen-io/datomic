@@ -5,7 +5,8 @@
                      [pprint :refer [pprint]]]
             [clojure.tools.logging :refer [info warn]]
             [datomic.api :as d]
-            [jepsen.datomic.peer [append :as append]]
+            [jepsen.datomic.peer [append :as append]
+                                 [append-cas :as append-cas]]
             [org.httpkit.server :as http-server]
             [slingshot.slingshot :refer [try+ throw+]]
             [unilog.config :refer [start-logging!]])
@@ -101,7 +102,8 @@
                                 [:ok r])
                     "/health" :ok
                     "/stats"  (d/db-stats (d/db conn))
-                    "/txn"    (append/handle-txn conn body))]
+                    "/txn"    (append/handle-txn conn body)
+                    "/txn-cas" (append-cas/handle-txn conn body))]
           {:status  200
            :headers {"Content-Type" "application/edn"}
            :body    (pr-str res)}))
@@ -136,11 +138,14 @@
   `serve`."
   [conn]
   (info "Append")
-  (d/transact conn [[:db/retractEntity [:append/key 0]]])
-  (info (append/handle-txn conn [[:append 0 0]]))
-  (info (append/handle-txn conn [[:r 0 nil]]))
-  (info (append/handle-txn conn [[:r 0 nil] [:append 0 1] [:r 0 nil] [:append 0 2]]))
-  (info (append/handle-txn conn [[:r 0 nil]])))
+  (d/transact conn [[:db/retractEntity [:append-cas/key 0]]])
+  (info (append-cas/handle-txn conn {:txn [[:append 0 1]]}))
+  (info nil)
+  (info (append-cas/handle-txn conn {:txn [[:r 0 nil]]}))
+  (info nil)
+  (info (append-cas/handle-txn conn {:txn [[:r 0 nil] [:append 0 2] [:r 0 nil] [:append 0 3]]}))
+  (info nil)
+  (info (append-cas/handle-txn conn {:txn [[:r 0 nil]]})))
 
 (defn -main
   "CLI entry point. Two commands:
@@ -162,7 +167,9 @@
   (let [conn (await-fn (partial d/connect uri)
                        {:log-message "Connecting to Datomic"
                         :timeout Long/MAX_VALUE})]
-    (await-fn #(deref (d/transact conn (concat append/schema)))
+    ; Create schema
+    (await-fn #(deref (d/transact conn (concat append/schema
+                                               append-cas/schema)))
               {:log-message "Ensuring schema"
                :timeout     Long/MAX_VALUE})
     (case cmd
