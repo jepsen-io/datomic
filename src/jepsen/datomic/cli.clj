@@ -15,6 +15,7 @@
                             [nemesis :as dn]]
             [jepsen.datomic.workload [append :as append]
                                      [append-cas :as append-cas]
+                                     [grant :as grant]
                                      [internal :as internal]]
             [jepsen.nemesis.combined :as nc]
             [jepsen.os.debian :as debian]))
@@ -24,6 +25,7 @@
   workload maps"
   {:append     append/workload
    :append-cas append-cas/workload
+   :grant      grant/workload
    :internal   internal/workload
    :none       (constantly tests/noop-test)})
 

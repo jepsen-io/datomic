@@ -128,7 +128,8 @@
               :type  (if (:definite? e#) :fail :info)
               :error [:unavailable (:cognitect.anomalies/message e#)]))
 
-     (catch (re-find #"^:db\.error/cas-failed" (:message ~'%)) e#
+     (catch (when-let [m# (:message ~'%)]
+              (re-find #"^:db\.error/cas-failed" m#)) e#
        (assoc ~op
               :type :fail
               :error [:cas-failed (:message e#)]))))

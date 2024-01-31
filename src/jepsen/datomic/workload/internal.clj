@@ -205,6 +205,8 @@
                      ; The double-increment actually drops the second fn
                      (check-state' op {"x" 2} r3))))}
 
+   ; Modifying an entity by lookup ref
+
    ; Retracting then adding something should result in the fact being true:
    ; that's what would happen if you did this in two txns
    {:f     :retract-add

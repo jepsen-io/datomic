@@ -7,6 +7,7 @@
             [datomic.api :as d]
             [jepsen.datomic.peer [append :as append]
                                  [append-cas :as append-cas]
+                                 [grant :as grant]
                                  [internal :as internal]]
             [org.httpkit.server :as http-server]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -102,6 +103,7 @@
               res (case (:uri req)
                     "/gc"     (let [r (d/gc-storage conn (Date.))]
                                 [:ok r])
+                    "/grant"    (grant/handle-txn conn body)
                     "/health"   :ok
                     "/internal" (internal/handle-txn conn body)
                     "/stats"    (d/db-stats (d/db conn))
@@ -144,15 +146,29 @@
   top of store/latest/n3/peer.log, and then run that with `test` instead of
   `serve`."
   [conn]
-  (info "Append")
-  (d/transact conn [[:db/retractEntity [:append-cas/key 0]]])
-  (info (append-cas/handle-txn conn {:txn [[:append 0 1]]}))
-  (info nil)
-  (info (append-cas/handle-txn conn {:txn [[:r 0 nil]]}))
-  (info nil)
-  (info (append-cas/handle-txn conn {:txn [[:r 0 nil] [:append 0 2] [:r 0 nil] [:append 0 3]]}))
-  (info nil)
-  (info (append-cas/handle-txn conn {:txn [[:r 0 nil]]})))
+  ;(info "Append")
+  ;(d/transact conn [[:db/retractEntity [:append-cas/key 0]]])
+  ;(info (append-cas/handle-txn conn {:txn [[:append 0 1]]}))
+  ;(info nil)
+  ;(info (append-cas/handle-txn conn {:txn [[:r 0 nil]]}))
+  ;(info nil)
+  ;(info (append-cas/handle-txn conn {:txn [[:r 0 nil] [:append 0 2] [:r 0 nil] [:append 0 3]]}))
+  ;(info nil)
+  ;(info (append-cas/handle-txn conn {:txn [[:r 0 nil]]}))
+
+  (info "Grant")
+  ;(info :all (grant/all-ids @(d/sync conn)))
+  @(d/transact conn [['jepsen.datomic.peer.grant/reset]])
+  (let [r  (grant/handle-txn conn {:txn [['jepsen.datomic.peer.grant/create]]})
+        id (:db/id (first (:state' r)))]
+    (info :r r)
+    ;(info :state' (:state' r))
+    ;(info :id id)
+    (info (grant/handle-txn
+            conn
+            {:txn [['jepsen.datomic.peer.grant/approve id]
+                   ['jepsen.datomic.peer.grant/deny id]]}))
+  ))
 
 (defn -main
   "CLI entry point. Two commands:
@@ -177,6 +193,7 @@
     ; Create schema
     (await-fn #(deref (d/transact conn (concat append/schema
                                                append-cas/schema
+                                               grant/schema
                                                internal/schema)))
               {:log-message "Ensuring schema"
                :timeout     Long/MAX_VALUE})
