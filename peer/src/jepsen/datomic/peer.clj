@@ -73,7 +73,7 @@
     (d/create-database uri)
     :done
     (catch Exception e
-      (warn e "Couldn't create database")
+      ;(warn e "Couldn't create database")
       (throw e))))
 
 (defmacro unwrap-ee
@@ -110,7 +110,11 @@
           {:status  200
            :headers {"Content-Type" "application/edn"}
            :body    (pr-str res)}))
-      (catch ExceptionInfo e
+      (catch datomic.impl.Exceptions$IllegalArgumentExceptionInfo e
+        {:status  500
+         :headers {"Content-Type" "application/edn"}
+         :body    (pr-str (ex-data e))})
+      (catch clojure.lang.ExceptionInfo e
         {:status  500
          :headers {"Content-Type" "application/edn"}
          :body    (pr-str (ex-data e))})

@@ -14,7 +14,8 @@
                             [db :as db]
                             [nemesis :as dn]]
             [jepsen.datomic.workload [append :as append]
-                                     [append-cas :as append-cas]]
+                                     [append-cas :as append-cas]
+                                     [internal :as internal]]
             [jepsen.nemesis.combined :as nc]
             [jepsen.os.debian :as debian]))
 
@@ -23,11 +24,12 @@
   workload maps"
   {:append     append/workload
    :append-cas append-cas/workload
+   :internal   internal/workload
    :none       (constantly tests/noop-test)})
 
 (def all-workloads
   "A collection of workloads we run by default"
-  [:append])
+  [:append :append-cas :internal])
 
 (def all-nemeses
   "Combinations of nemeses we run by default."

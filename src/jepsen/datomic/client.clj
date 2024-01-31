@@ -109,6 +109,11 @@
      (catch [:db/error :db.error/transaction-timeout] e#
        (assoc ~op :type :info, :error [:txn-timeout]))
 
+     (catch [:cognitect.anomalies/category :cognitect.anomalies/incorrect] e#
+       (assoc ~op
+              :type :fail
+              :error [:incorrect e#]))
+
      (catch [:cognitect.anomalies/category :cognitect.anomalies/conflict] e#
        (assoc ~op
               :type :fail
@@ -121,4 +126,9 @@
        ;(info :unavailable-err (pr-str e#) (pr-str (:definite? e#)))
        (assoc ~op
               :type  (if (:definite? e#) :fail :info)
-              :error [:unavailable (:cognitect.anomalies/message e#)]))))
+              :error [:unavailable (:cognitect.anomalies/message e#)]))
+
+     (catch (re-find #"^:db\.error/cas-failed" (:message ~'%)) e#
+       (assoc ~op
+              :type :fail
+              :error [:cas-failed (:message e#)]))))
