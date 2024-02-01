@@ -104,8 +104,15 @@
   (or (check-fail op)
       (when (-> error first (not= :cas-failed))
         {:type :expected-cas-failed
-         :error error
-         :op    op})))
+         :error error})))
+
+(defn check-not-entity
+  "Checks for a :db/error :db.error/not-an-entity error."
+  [{:keys [error] :as op}]
+  (or (check-fail op)
+      (when (-> error second :db/error (not= :db.error/not-an-entity))
+        {:type :expected-not-an-entity
+         :error error})))
 
 (defn check-state'
   "Checks that the state after a given txn is compatible with the given state."
@@ -206,6 +213,34 @@
                      (check-state' op {"x" 2} r3))))}
 
    ; Modifying an entity by lookup ref
+   {:f :lookup-ref-separate
+    :value [; Create x = 0
+            [[:db/add "x" :internal/key "x"]
+             [:db/add "x" :internal/value 0]]
+            ; Then try to modify it using a lookup ref
+            [[:db/add [:internal/key "x"] :internal/value 1]]]
+    ; We expect the value to go x=0, x=1, and Datomic does this if you use
+    ; separate txns
+    :standard (fn [op]
+                (let [[r1 r2] (:value op)]
+                  (or (check-state' op {"x" 0} r1)
+                      (check-state' op {"x" 1} r2))))
+    :datomic (fn [op]
+                (let [[r1 r2] (:value op)]
+                  (or (check-state' op {"x" 0} r1)
+                      (check-state' op {"x" 1} r2))))}
+
+   ; Modifying an entity by lookup ref in the same txn
+   {:f :lookup-ref-same
+    :value [[; Create x = 0
+             [:db/add "x" :internal/key "x"]
+             ; Then try to set it using a lookup ref
+             [:db/add [:internal/key "x"] :internal/value 0]]]
+    ; We expect the value to become x = 0
+    :standard (fn [op]
+                (check-state' op {"x" 1} (:value op)))
+    ; But in Datomic it fails to resolve
+    :datomic check-not-entity}
 
    ; Retracting then adding something should result in the fact being true:
    ; that's what would happen if you did this in two txns
