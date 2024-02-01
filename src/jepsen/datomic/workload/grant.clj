@@ -10,7 +10,8 @@
                     [history :as h]
                     [store :as store]]
             [jepsen.datomic [client :as c]
-                            [db :as db]])
+                            [db :as db]]
+            [slingshot.slingshot :refer [try+ throw+]])
   (:import (jepsen.history Op)))
 
 (defn create!
@@ -39,17 +40,28 @@
   (setup! [this test])
 
   ; Runs a series of transactions in sequence, saving the results in a vector
-  ; under :value.
+  ; of state maps under the resulting op's :value
   (invoke! [this test {:keys [f value] :as op}]
-    (c/with-errors op
-      (let [id (create! node)
-            txn (case f
-                  :approve [['jepsen.datomic.peer.grant/approve id]]
-                  :deny    [['jepsen.datomic.peer.grant/deny id]]
-                  :approve-deny [['jepsen.datomic.peer.grant/approve id]
-                                 ['jepsen.datomic.peer.grant/deny id]])
-            r (c/req! node :grant {:txn txn})]
-        (assoc op :type :ok, :value (:state' r)))))
+    (try+
+      (c/with-errors op
+        (let [id   (create! node)
+              txns (case f
+                     :approve [[['jepsen.datomic.peer.grant/approve id]]]
+                     :deny    [[['jepsen.datomic.peer.grant/deny id]]]
+                     ; Runs an approve txn, then a deny txn
+                     :approve-then-deny
+                     [[['jepsen.datomic.peer.grant/approve id]]
+                      [['jepsen.datomic.peer.grant/deny id]]]
+                     ; Runs approve and deny in the same txn
+                     :approve-deny [[['jepsen.datomic.peer.grant/approve id]
+                                     ['jepsen.datomic.peer.grant/deny id]]])
+              r (mapv (fn [txn] (:state' (c/req! node :grant {:txn txn})))
+                      txns)]
+          (assoc op :type :ok, :value r)))
+      (catch [:type :already-approved] _
+        (assoc op :type :fail, :error :already-approved))
+      (catch [:type :already-denied] _
+        (assoc op :type :fail, :error :already-denied))))
 
   (teardown! [this test])
 
@@ -65,8 +77,8 @@
 
 (defn checker
   "Checker for grant histories. :approve and :deny ops should be fine.
-  :approve-deny ops should always fail. Every grant should be either approved
-  xor denied."
+  :approve-then-deny ops, :approve-deny ops should always fail. Every grant
+  should be either approved xor denied."
   []
   (reify checker/Checker
     (check [this test history check-opts]
@@ -76,21 +88,27 @@
             denies           (h/filter-f :deny h)
             approve-denies   (h/filter-f :approve-deny h)
             approve-deny-oks (h/oks approve-denies)
+            approve-then-deny-oks (->> (h/filter-f :approve-then-deny h)
+                                      (h/oks))
             malformed        (keep (fn [op]
-                                     (when-let [m (some malformed (:value op))]
-                                       {:malformed m
-                                        :op op}))
+                                     (let [state' (last (:value op))]
+                                       (when-let [m (some malformed state')]
+                                         {:malformed m
+                                          :op op})))
                                    (h/oks h))]
         {:valid?             (and (= 0 (count approve-deny-oks))
+                                  (= 0 (count approve-then-deny-oks))
                                   (= 0 (count malformed)))
-         :approve-deny-oks   (into [] approve-deny-oks)
-         :malformed          (into [] malformed)}))))
+         :approve-then-deny-oks (into [] approve-then-deny-oks)
+         :approve-deny-oks      (into [] approve-deny-oks)
+         :malformed             (into [] malformed)}))))
 
 (defn gen
   "Generator of ops."
   []
   [{:f :approve}
    {:f :deny}
+   {:f :approve-then-deny}
    {:f :approve-deny}])
 
 (defn workload
