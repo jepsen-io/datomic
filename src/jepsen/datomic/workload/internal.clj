@@ -141,6 +141,21 @@
     ; But in Datomic, it's illegal
     :datomic check-conflict}
 
+   ; Adding a fact and then incrementing in the same txn: the inc doesn't see
+   ; the add.
+   {:f :add-inc
+    :value [[[:db/add "x" :internal/key "x"]
+             [:db/add "x" :internal/value 0]]
+            [[:db/add [:internal/key "x"] :internal/value 1]
+             ['jepsen.datomic.peer.internal/increment "x"]]]
+    ; Normally you'd expect 2
+    :standard (fn [op]
+                (check-state' op {"x" 2} (second (:value op))))
+    ; But in Datomic, it's 1!
+    :datomic (fn [op]
+               (check-state' op {"x" 1} (second (:value op))))}
+
+
    ; Adding and retracting something should result in the fact not being
    ; present; that's what would happen if you did two transactions
    {:f   :add-retract
