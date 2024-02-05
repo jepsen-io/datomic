@@ -30,8 +30,10 @@
    :none       (constantly tests/noop-test)})
 
 (def all-workloads
-  "A collection of workloads we run by default"
-  [:append :append-cas :internal])
+  "A collection of workloads we run by default. We skip internal and grant
+  here;both were designed quickly for tests without faults, and I'm not sure
+  how badly their checkers will explode if we try to run them with faults."
+  [:append :append-cas])
 
 (def all-nemeses
   "Combinations of nemeses we run by default."

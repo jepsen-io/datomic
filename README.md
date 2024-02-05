@@ -131,6 +131,19 @@ so they can interact with Dynamo. Credentials are stored in
 `/etc/systemd/system/datomic-peer.service` on peers, and are passed in as
 environment variables to the actual transactor and peer processes by systemd.
 
+## Workloads
+
+There are four main workloads, selectable with `-w workload-name`. `append` and
+`append-cas` perform transactions of reads and appends to lists encoded in two
+differnet ways. `append` provides a blend of Strong Session Serializable and
+Strong Serializable; see the Jepsen report for details. `append-cas` yields
+Strong Session Snapshot Isolation. `internal` is a very short test with a
+handful of hand-coded examples of internal consistency; it measures both
+Datomic's behavior, and what you'd expect from a database with serial
+intra-transaction semantics. `grant` demonstrates a write-skew analogue within
+a single transaction: an invariant violation that arises due to concurrent
+logical execution of two transaction functions.
+
 ## Variations
 
 To sync on every read, use `--sync`.
