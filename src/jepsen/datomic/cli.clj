@@ -109,6 +109,9 @@
    ["-c" "--consistency-model MODEL" "If specified, overrides the checker and verifies the given consistency model holds over the entire history."
     :parse-fn keyword]
 
+   [nil "--entity-pred" "If true, uses entity predicate to ensure domain-specific invariant"
+    :default false]
+
    [nil "--dynamo-read-capacity UNITS" "How many units of read capacity to give DynamoDB."
     :default 250
     :parse-fn parse-long]

@@ -41,20 +41,20 @@
 
   ; Runs a series of transactions in sequence, saving the results in a vector
   ; of state maps under the resulting op's :value
-  (invoke! [this test {:keys [f value] :as op}]
+  (invoke! [this {:keys [entity-pred]} {:keys [f value] :as op}]
     (try+
       (c/with-errors op
         (let [id   (create! node)
               txns (case f
-                     :approve [[['jepsen.datomic.peer.grant/approve id]]]
-                     :deny    [[['jepsen.datomic.peer.grant/deny id]]]
+                     :approve [[['jepsen.datomic.peer.grant/approve id entity-pred]]]
+                     :deny [[['jepsen.datomic.peer.grant/deny id entity-pred]]]
                      ; Runs an approve txn, then a deny txn
                      :approve-then-deny
-                     [[['jepsen.datomic.peer.grant/approve id]]
-                      [['jepsen.datomic.peer.grant/deny id]]]
+                     [[['jepsen.datomic.peer.grant/approve id entity-pred]]
+                      [['jepsen.datomic.peer.grant/deny id entity-pred]]]
                      ; Runs approve and deny in the same txn
-                     :approve-deny [[['jepsen.datomic.peer.grant/approve id]
-                                     ['jepsen.datomic.peer.grant/deny id]]])
+                     :approve-deny [[['jepsen.datomic.peer.grant/approve id entity-pred]
+                                     ['jepsen.datomic.peer.grant/deny id entity-pred]]])
               r (mapv (fn [txn] (:state' (c/req! node :grant {:txn txn})))
                       txns)]
           (assoc op :type :ok, :value r)))
