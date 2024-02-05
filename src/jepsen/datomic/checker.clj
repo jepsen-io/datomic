@@ -12,6 +12,16 @@
             [tesser.core :as t])
   (:import (jepsen.history Op)))
 
+(defn jepsen-stats-checker
+  "Like jepsen.checker.stats, but always valid. Some of our tests we WANT every
+  operation of a given :f to fail."
+  []
+  (let [c (checker/stats)]
+    (reify checker/Checker
+      (check [this test history opts]
+        (assoc (checker/check c test history opts)
+               :valid? true)))))
+
 (defn stats-datasets
   "Takes a history and produces a map of metrics (e.g. :datoms to [time,
   value] pairs."

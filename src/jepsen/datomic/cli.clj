@@ -84,12 +84,12 @@
             :db db
             :plot    {:nemeses (:perf nemesis)}
             :checker (checker/compose
-                       {:perf  (checker/perf)
-                        :clock (checker/clock-plot)
-                        :stats (checker/stats)
-                        :datomic (datomic.checker/stats-checker)
+                       {:perf       (checker/perf)
+                        :clock      (checker/clock-plot)
+                        :stats      (datomic.checker/jepsen-stats-checker)
+                        :datomic    (datomic.checker/stats-checker)
                         :exceptions (checker/unhandled-exceptions)
-                        :workload (:checker workload)
+                        :workload   (:checker workload)
                         })
             :client (:client workload)
             :nemesis (:nemesis nemesis nemesis/noop)
