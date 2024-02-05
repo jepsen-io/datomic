@@ -8,6 +8,13 @@
             [slingshot.slingshot :refer [try+ throw+]])
   (:import (java.util Date)))
 
+(defn valid-grant?
+  "Returns true iff the provided eid for a grant has only
+  approved-at or denied-at, never both."
+  [db eid]
+  (let [{:grant/keys [approved-at denied-at]} (d/pull db '[:grant/approved-at :grant/denied-at] eid)]
+    (not (and approved-at denied-at))))
+
 (def schema
   [{:db/ident       :grant/created-at
     :db/valueType   :db.type/instant
@@ -20,7 +27,10 @@
    {:db/ident       :grant/approved-at
     :db/valueType   :db.type/instant
     :db/cardinality :db.cardinality/one
-    :db/doc         "When was this grant approved?"}])
+    :db/doc         "When was this grant approved?"}
+   {:db/ident        :grant/valid?
+    :db.entity/preds ['jepsen.datomic.peer.grant/valid-grant?]
+    :db/doc          "Ensures transaction this is invoked in doesn't violate domain-specific invariants"}])
 
 (defn all-ids
   "All grant entity IDs."
@@ -87,16 +97,22 @@
     (throw+ {:definite? true, :type :already-denied})))
 
 (defn approve
-  "Approves a grant by ID. Ensures the grant has not been approved or denied."
-  [db id]
+  "Approves a grant by ID. Ensures the grant has not been approved or denied.
+
+  Optionally invoking an entity predicate."
+  [db id entity-pred]
   (assert-fresh db id)
-  [[:db/add id :grant/approved-at (Date.)]])
+  [(cond-> {:db/id id :grant/approved-at (Date.)}
+           entity-pred (assoc :db/ensure :grant/valid?))])
 
 (defn deny
-  "Denies a grant by ID. Ensures the grant has not been approved or denied."
-  [db id]
+  "Denies a grant by ID. Ensures the grant has not been approved or denied.
+
+  Optionally invoking an entity predicate."
+  [db id entity-pred]
   (assert-fresh db id)
-  [[:db/add id :grant/denied-at (Date.)]])
+  [(cond-> {:db/id id :grant/denied-at (Date.)}
+           entity-pred (assoc :db/ensure :grant/valid?))])
 
 (defn handle-txn
   "Handles a txn request. Returns a map of:
@@ -106,7 +122,7 @@
   :state  All records prior to the txn
   :state' All records after the txn
   "
-  [conn {:keys [txn] :as req}]
+  [conn {:keys [txn ensure?] :as req}]
   (info :handle-txn txn)
   (let [; Run transaction directly
         {:keys [db-before db-after] :as r}
