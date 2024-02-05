@@ -8,6 +8,7 @@
             [jepsen.datomic.peer [append :as append]
                                  [append-cas :as append-cas]
                                  [grant :as grant]
+                                 [grant-entity-pred :as grant-entity-pred]
                                  [internal :as internal]]
             [org.httpkit.server :as http-server]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -101,14 +102,15 @@
                                pbr (PushbackReader. r)]
                      (edn/read pbr))
               res (case (:uri req)
-                    "/gc"     (let [r (d/gc-storage conn (Date.))]
-                                [:ok r])
-                    "/grant"    (grant/handle-txn conn body)
-                    "/health"   :ok
-                    "/internal" (internal/handle-txn conn body)
-                    "/stats"    (d/db-stats (d/db conn))
-                    "/txn"      (append/handle-txn conn body)
-                    "/txn-cas"  (append-cas/handle-txn conn body))]
+                    "/gc"                   (let [r (d/gc-storage conn (Date.))]
+                                              [:ok r])
+                    "/grant"                (grant/handle-txn conn body)
+                    "/grant-entity-pred"    (grant-entity-pred/handle-txn conn body)
+                    "/health"               :ok
+                    "/internal"             (internal/handle-txn conn body)
+                    "/stats"                (d/db-stats (d/db conn))
+                    "/txn"                  (append/handle-txn conn body)
+                    "/txn-cas"              (append-cas/handle-txn conn body))]
           {:status  200
            :headers {"Content-Type" "application/edn"}
            :body    (pr-str res)}))
@@ -194,6 +196,7 @@
     (await-fn #(deref (d/transact conn (concat append/schema
                                                append-cas/schema
                                                grant/schema
+                                               grant-entity-pred/schema
                                                internal/schema)))
               {:log-message "Ensuring schema"
                :timeout     Long/MAX_VALUE})
